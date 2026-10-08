@@ -16,7 +16,11 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      - name: Build
+        run: |
+          dotnet restore -v:n
+          dotnet build -c Release --no-restore
       - name: Test
-        run: dotnet run --project Packager.Tests -c Release
+        run: dotnet run --project Packager.Tests -c Release --no-build
       - name: Plan (dry run against Unity's API, no releases)
-        run: dotnet run --project Packager -c Release -- plan --limit 3
+        run: dotnet run --project Packager -c Release --no-build -- plan --limit 3

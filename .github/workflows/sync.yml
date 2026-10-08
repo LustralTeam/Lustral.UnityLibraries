@@ -42,6 +42,10 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      - name: Build the packager
+        run: |
+          dotnet restore Packager -v:n
+          dotnet build Packager -c Release --no-restore
       - id: plan
         name: Plan
         env:
@@ -49,7 +53,7 @@ jobs:
           VERSIONS: ${{ inputs.versions }}
           REBUILD: ${{ inputs.rebuild && '--rebuild' || '' }}
           LIMIT: ${{ inputs.limit || '40' }}
-        run: dotnet run --project Packager -c Release -- plan --repository "$GITHUB_REPOSITORY" --versions "$VERSIONS" $REBUILD --limit "$LIMIT" --github-output "$GITHUB_OUTPUT"
+        run: dotnet run --project Packager -c Release --no-build -- plan --repository "$GITHUB_REPOSITORY" --versions "$VERSIONS" $REBUILD --limit "$LIMIT" --github-output "$GITHUB_OUTPUT"
 
   # Unity's Windows module installers only run on Windows; each version gets a runner of its own.
   build:
@@ -68,13 +72,17 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
+      - name: Build the packager
+        run: |
+          dotnet restore Packager -v:n
+          dotnet build Packager -c Release --no-restore
       - name: Build
         env:
           VERSION: ${{ matrix.version }}
           PACKAGES: ${{ matrix.packages }}
-        run: dotnet run --project Packager -c Release -- build --version "$env:VERSION" --packages "$env:PACKAGES" --output out --work "$env:RUNNER_TEMP\unity"
+        run: dotnet run --project Packager -c Release --no-build -- build --version "$env:VERSION" --packages "$env:PACKAGES" --output out --work "$env:RUNNER_TEMP\unity"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ matrix.version }}
-        run: dotnet run --project Packager -c Release -- publish --repository "$env:GITHUB_REPOSITORY" --version "$env:VERSION" --input out --target "$env:GITHUB_SHA"
+        run: dotnet run --project Packager -c Release --no-build -- publish --repository "$env:GITHUB_REPOSITORY" --version "$env:VERSION" --input out --target "$env:GITHUB_SHA"

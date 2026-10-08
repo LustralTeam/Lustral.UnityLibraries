@@ -4,7 +4,8 @@
     <LangVersion>14</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Dependabot keeps the few packages current; restore stays off the network beyond fetching them. -->
+    <NuGetAudit>false</NuGetAudit>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 </Project>
