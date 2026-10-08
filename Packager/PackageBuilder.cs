@@ -10,14 +10,15 @@ internal static class PackageBuilder
     // Fixed, so a rebuild of the same files makes the same entries.
     private static readonly DateTimeOffset EntryTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    /// <param name="installed">The module's install folder (or an editor folder that has the module).</param>
-    public static PackageEntry Build(PackageDefinition package, UnityModule? module, string installed, string outputDirectory)
+    /// <param name="installed">The module's files, at their paths in its package.</param>
+    /// <param name="contents">What the module has, for the reason when the sources aren't there; default: its Variations folders.</param>
+    public static PackageEntry Build(PackageDefinition package, UnityModule? module, string installed, string outputDirectory, string? contents = null)
     {
         var source = package.Sources.FirstOrDefault(s => ResolveDirectory(installed, s) is not null);
         if (source is null)
         {
             return Unavailable(package, module,
-                $"none of the source folders is in the {package.Module} module ({string.Join(", ", package.Sources)}); it has {Describe(installed)}");
+                $"none of the source folders is in the {package.Module} module ({string.Join(", ", package.Sources)}); it has {contents ?? Describe(installed)}");
         }
         var directory = ResolveDirectory(installed, source)!;
         var patterns = package.Files.Select(Glob).ToList();

@@ -55,12 +55,12 @@ jobs:
           LIMIT: ${{ inputs.limit || '40' }}
         run: dotnet run --project Packager -c Release --no-build -- plan --repository "$GITHUB_REPOSITORY" --versions "$VERSIONS" $REBUILD --limit "$LIMIT" --github-output "$GITHUB_OUTPUT"
 
-  # Unity's Windows module installers only run on Windows; each version gets a runner of its own.
+  # A runner per version: Unity's macOS module packages are downloaded and read directly, no installer runs.
   build:
     needs: plan
     if: needs.plan.outputs.count != '0'
     name: ${{ matrix.version }}
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     strategy:
@@ -80,9 +80,9 @@ jobs:
         env:
           VERSION: ${{ matrix.version }}
           PACKAGES: ${{ matrix.packages }}
-        run: dotnet run --project Packager -c Release --no-build -- build --version "$env:VERSION" --packages "$env:PACKAGES" --output out --work "$env:RUNNER_TEMP\unity"
+        run: dotnet run --project Packager -c Release --no-build -- build --version "$VERSION" --packages "$PACKAGES" --output out --work "$RUNNER_TEMP/unity"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ matrix.version }}
-        run: dotnet run --project Packager -c Release --no-build -- publish --repository "$env:GITHUB_REPOSITORY" --version "$env:VERSION" --input out --target "$env:GITHUB_SHA"
+        run: dotnet run --project Packager -c Release --no-build -- publish --repository "$GITHUB_REPOSITORY" --version "$VERSION" --input out --target "$GITHUB_SHA"

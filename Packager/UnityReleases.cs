@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>A Unity release and the modules its Windows x64 editor offers, which hold the player files.</summary>
+/// <summary>A Unity release and the modules its macOS editor offers, whose packages hold the player files.</summary>
 internal sealed record UnityRelease(UnityVersion Version, string Revision, IReadOnlyDictionary<string, UnityModule> Modules);
 
 /// <param name="Md5">The installer's MD5, lowercase hex, when Unity gives it.</param>
@@ -11,7 +11,8 @@ internal sealed record UnityModule(string Id, Uri Url, string Type, long Size, s
 
 /// <summary>
 /// Unity's public release API (<c>services.api.unity.com/unity/editor/release/v1/releases</c>), the one Unity Hub
-/// uses. Extended LTS releases are asked for too, since games ship on them.
+/// uses. Extended LTS releases are asked for too, since games ship on them. The modules are the macOS (x64) editor's:
+/// its installers are plain <c>.pkg</c> archives (see <see cref="MacPackage"/>), where Windows' need running.
 /// </summary>
 internal static class UnityReleases
 {
@@ -23,7 +24,7 @@ internal static class UnityReleases
         var releases = new List<UnityRelease>();
         for (var offset = 0; ; offset += PageSize)
         {
-            var url = $"{Endpoint}?limit={PageSize}&offset={offset}&platform=WINDOWS&architecture=X86_64&entitlements=XLTS";
+            var url = $"{Endpoint}?limit={PageSize}&offset={offset}&platform=MAC_OS&architecture=X86_64&entitlements=XLTS";
             using var document = JsonDocument.Parse(await GetWithRetriesAsync(http, url, cancellation));
             var results = document.RootElement.GetProperty("results");
             foreach (var release in results.EnumerateArray())
@@ -45,7 +46,7 @@ internal static class UnityReleases
         var modules = new Dictionary<string, UnityModule>(StringComparer.Ordinal);
         foreach (var download in release.GetProperty("downloads").EnumerateArray())
         {
-            if (download.GetProperty("platform").GetString() != "WINDOWS" || download.GetProperty("architecture").GetString() != "X86_64")
+            if (download.GetProperty("platform").GetString() != "MAC_OS" || download.GetProperty("architecture").GetString() != "X86_64")
                 continue;
             foreach (var module in download.GetProperty("modules").EnumerateArray())
             {

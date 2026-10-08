@@ -1,14 +1,15 @@
 {
-  "$comment": "What each release holds. Every package is a zip asset, built from one Unity module installed for that Unity version. Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
+  "$comment": "What each release holds. Every package is a zip asset, built from one Unity module's macOS installer package (Unity's module id; paths are the package's, the first that exists wins). Unity 6000.6 keeps the libraries only in the shared Variations/<backend>/Managed folder, whose code is the player's (checked on 2022.3.62f2). Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
   "minimumVersion": "2019.4.0f1",
   "packages": [
     {
       "asset": "Managed-Windows.zip",
-      "description": "Unity's managed libraries from the Windows x64 IL2CPP player, for unstripping Windows IL2CPP games.",
-      "module": "windows-il2cpp",
+      "description": "Unity's managed libraries from the Windows x64 player, for unstripping Windows IL2CPP games. macOS has no Windows IL2CPP module, so these are the Mono player's, whose managed code matches the IL2CPP player's apart from attribute order and inlining hints.",
+      "module": "windows-mono",
       "sources": [
-        "Data/PlaybackEngines/windowsstandalonesupport/Variations/win64_player_nondevelopment_il2cpp/Data/Managed",
-        "Data/PlaybackEngines/windowsstandalonesupport/Variations/win64_nondevelopment_il2cpp/Data/Managed"
+        "Variations/win64_player_nondevelopment_mono/Data/Managed",
+        "Variations/win64_nondevelopment_mono/Data/Managed",
+        "Variations/mono/Managed"
       ],
       "files": [ "*.dll" ]
     },
@@ -17,8 +18,9 @@
       "description": "Unity's managed libraries from the Linux x64 IL2CPP player, for unstripping Linux IL2CPP games.",
       "module": "linux-il2cpp",
       "sources": [
-        "Data/PlaybackEngines/LinuxStandaloneSupport/Variations/linux64_player_nondevelopment_il2cpp/Data/Managed",
-        "Data/PlaybackEngines/LinuxStandaloneSupport/Variations/linux64_withgfx_nondevelopment_il2cpp/Data/Managed"
+        "Variations/linux64_player_nondevelopment_il2cpp/Data/Managed",
+        "Variations/linux64_withgfx_nondevelopment_il2cpp/Data/Managed",
+        "Variations/il2cpp/Managed"
       ],
       "files": [ "*.dll" ]
     }

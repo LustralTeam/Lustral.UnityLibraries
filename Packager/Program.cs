@@ -2,15 +2,15 @@ using System.Text.Json;
 using Lustral.UnityLibraries;
 
 const string Usage = """
-    Packager: builds the releases of Lustral.UnityLibraries, one per Unity version, from Unity's own installers.
+    Packager: builds the releases of Lustral.UnityLibraries, one per Unity version, from Unity's own module packages.
 
     Usage:
       plan     [--repository owner/name] [--versions v1,v2] [--rebuild] [--limit n] [--github-output file]
                What to build: final Unity releases from packages.json's minimum on whose release is missing a package, or
                has one from an older definition. Without --repository, as if there were no releases yet.
-      build    --version <unity version> [--packages a.zip,b.zip] [--output dir] [--work dir] [--from-editor dir]
-               Downloads and installs each package's Unity module (Windows only) and zips the files into --output, with a
-               manifest.json for them. --from-editor reads an installed Unity editor folder instead, for trying it out.
+      build    --version <unity version> [--packages a.zip,b.zip] [--output dir] [--work dir]
+               Downloads each package's Unity module (the macOS editor's .pkg, which any OS can read), takes the files out
+               and zips them into --output, with a manifest.json for them.
       publish  --repository owner/name --version <unity version> --input dir [--target commit]
                Creates the version's release with what build wrote, or updates the release's packages and manifest.
 
@@ -49,7 +49,7 @@ try
             return 2;
     }
 }
-catch (Exception e) when (e is ArgumentException or FormatException or InvalidDataException or InvalidOperationException or NotSupportedException or PlatformNotSupportedException)
+catch (Exception e) when (e is ArgumentException or FormatException or InvalidDataException or InvalidOperationException or NotSupportedException)
 {
     Console.Error.WriteLine($"error: {e.Message}");
     return 1;
@@ -89,7 +89,6 @@ async Task<int> Build()
     var version = UnityVersion.Parse(options.Require("version"));
     var output = Path.GetFullPath(options.Get("output") ?? Path.Combine("out", version.ToString()));
     var work = Path.GetFullPath(options.Get("work") ?? "work");
-    var fromEditor = options.Get("from-editor") is { } editor ? Path.GetFullPath(editor) : null;
     var packages = options.List("packages") is { Count: > 0 } names ? names.Select(config.Package).ToList() : config.Packages.ToList();
 
     var release = (await UnityReleases.ListAsync(http, cancel.Token)).FirstOrDefault(r => r.Version == version)
@@ -102,34 +101,43 @@ async Task<int> Build()
     var manifest = new Manifest { UnityVersion = version.ToString(), Revision = release.Revision };
     foreach (var group in packages.GroupBy(p => p.Module))
     {
-        release.Modules.TryGetValue(group.Key, out var module);
-        string installed;
-        if (fromEditor is not null)
-            installed = fromEditor;
-        else if (module is null)
+        if (!release.Modules.TryGetValue(group.Key, out var module))
         {
             foreach (var package in group)
                 manifest.Packages[package.Asset] = PackageBuilder.Unavailable(package, null, $"Unity offers no {group.Key} module for {version}");
             continue;
         }
-        else
+
+        var moduleWork = Path.Combine(work, version.ToString(), module.Id);
+        if (Directory.Exists(moduleWork))
+            Directory.Delete(moduleWork, recursive: true);
+        var installer = await ModuleDownloader.DownloadAsync(http, module, moduleWork, cancel.Token);
+
+        // Only the files under the packages' source folders are written; the variations seen are noted for the reasons.
+        var extracted = Path.Combine(moduleWork, "files");
+        var prefixes = group.SelectMany(p => p.Sources).Select(s => s.Trim('/') + "/").ToList();
+        var variations = new SortedSet<string>(StringComparer.Ordinal);
+        var count = MacPackage.Extract(installer, extracted, path =>
         {
-            installed = await ModuleInstaller.InstallAsync(http, module, Path.Combine(work, version.ToString()), cancel.Token);
-            // An installer that put nothing in place failed, whatever its exit code said: that's not "unavailable".
-            if (PackageBuilder.ResolveDirectory(installed, "Data/PlaybackEngines") is null)
-                throw new InvalidOperationException($"{module.Id}'s installer exited normally but installed no Data/PlaybackEngines into {installed}");
-        }
+            var parts = path.Split('/');
+            if (parts.Length > 2 && parts[0] == "Variations")
+                variations.Add($"Variations/{parts[1]}");
+            return prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        });
+        // A package with no player variations at all isn't laid out as expected: fail, so it's looked at and retried.
+        if (variations.Count == 0)
+            throw new InvalidDataException($"{Path.GetFileName(installer)} has no Variations folder; Unity changed how the module is packaged");
+        Console.WriteLine($"  {module.Id}: {count} files extracted; variations: {string.Join(", ", variations.Select(v => v[11..]))}");
 
         foreach (var package in group)
         {
-            var entry = PackageBuilder.Build(package, module, installed, output);
+            var entry = PackageBuilder.Build(package, module, extracted, output, string.Join(", ", variations));
             manifest.Packages[package.Asset] = entry;
             Console.WriteLine(entry.State == PackageState.Built
                 ? $"  {package.Asset}: {entry.Files!.Count} files from {entry.Source}, {entry.Size / 1024} KB"
                 : $"  {package.Asset}: not available ({entry.Reason})");
         }
-        if (fromEditor is null && Directory.Exists(installed))
-            Directory.Delete(installed, recursive: true);
+        Directory.Delete(moduleWork, recursive: true); // runners have little disk to spare
     }
     manifest.Write(Path.Combine(output, Manifest.FileName));
     Console.WriteLine($"Wrote {output}");
