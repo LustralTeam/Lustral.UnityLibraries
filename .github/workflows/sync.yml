@@ -1,0 +1,80 @@
+# Keeps the releases complete: every 6 hours, and whenever packages.json or the packager changes, builds the Unity versions
+# whose release is missing a package (or has one from an older definition in packages.json) and publishes them.
+# Run it by hand to build chosen versions, or to rebuild them.
+name: Sync releases
+
+on:
+  schedule:
+    - cron: '37 */6 * * *'
+  push:
+    branches: [main]
+    paths: [packages.json, 'Packager/**', .github/workflows/sync.yml]
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: Unity versions to build, comma-separated, like 6000.0.58f2 (empty for everything missing or outdated)
+        required: false
+        default: ''
+      rebuild:
+        description: Rebuild those versions' packages even when they're current
+        type: boolean
+        default: false
+      limit:
+        description: At most this many versions in this run
+        required: false
+        default: '40'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - id: plan
+        name: Plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSIONS: ${{ inputs.versions }}
+          REBUILD: ${{ inputs.rebuild && '--rebuild' || '' }}
+          LIMIT: ${{ inputs.limit || '40' }}
+        run: dotnet run --project Packager -c Release -- plan --repository "$GITHUB_REPOSITORY" --versions "$VERSIONS" $REBUILD --limit "$LIMIT" --github-output "$GITHUB_OUTPUT"
+
+  # Unity's Windows module installers only run on Windows; each version gets a runner of its own.
+  build:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    name: ${{ matrix.version }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        env:
+          VERSION: ${{ matrix.version }}
+          PACKAGES: ${{ matrix.packages }}
+        run: dotnet run --project Packager -c Release -- build --version "$env:VERSION" --packages "$env:PACKAGES" --output out --work "$env:RUNNER_TEMP\unity"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ matrix.version }}
+        run: dotnet run --project Packager -c Release -- publish --repository "$env:GITHUB_REPOSITORY" --version "$env:VERSION" --input out --target "$env:GITHUB_SHA"

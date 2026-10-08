@@ -1,0 +1,26 @@
+{
+  "$comment": "What each release holds. Every package is a zip asset, built from one Unity module installed for that Unity version. Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
+  "minimumVersion": "2019.4.0f1",
+  "packages": [
+    {
+      "asset": "Managed-Windows.zip",
+      "description": "Unity's managed libraries from the Windows x64 IL2CPP player, for unstripping Windows IL2CPP games.",
+      "module": "windows-il2cpp",
+      "sources": [
+        "Data/PlaybackEngines/windowsstandalonesupport/Variations/win64_player_nondevelopment_il2cpp/Data/Managed",
+        "Data/PlaybackEngines/windowsstandalonesupport/Variations/win64_nondevelopment_il2cpp/Data/Managed"
+      ],
+      "files": [ "*.dll" ]
+    },
+    {
+      "asset": "Managed-Linux.zip",
+      "description": "Unity's managed libraries from the Linux x64 IL2CPP player, for unstripping Linux IL2CPP games.",
+      "module": "linux-il2cpp",
+      "sources": [
+        "Data/PlaybackEngines/LinuxStandaloneSupport/Variations/linux64_player_nondevelopment_il2cpp/Data/Managed",
+        "Data/PlaybackEngines/LinuxStandaloneSupport/Variations/linux64_withgfx_nondevelopment_il2cpp/Data/Managed"
+      ],
+      "files": [ "*.dll" ]
+    }
+  ]
+}

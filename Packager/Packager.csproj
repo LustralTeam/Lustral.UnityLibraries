@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds and publishes the per-Unity-version releases. No dependencies: Unity's and GitHub's APIs over HttpClient and
+       the gh CLI, Unity's own installers for the files. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Lustral.UnityLibraries</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Packager.Tests" />
+  </ItemGroup>
+
+</Project>
