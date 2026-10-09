@@ -137,6 +137,11 @@ dotnet run --project Packager.Tests
 `build` downloads the modules (several hundred MB per version) to `work/` and writes the release files to
 `out/<version>/`. `publish` requires the GitHub CLI and a token (`GH_TOKEN`).
 
+## License
+
+The packager's source code is licensed under the [Mozilla Public License 2.0](LICENSE). The Unity libraries published in
+this repository's releases are not covered by this license; they remain subject to Unity's terms (see below).
+
 ## Legal Notice
 
 Unity's libraries are part of the Unity software. Their use is subject to the
