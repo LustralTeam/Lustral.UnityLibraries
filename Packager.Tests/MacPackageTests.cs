@@ -12,7 +12,8 @@ public sealed class MacPackageTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    // A package laid out like Unity's: xar, TargetSupport.pkg.tmp/Payload stored as is, a gzip of an odc cpio archive.
+    // A package laid out as Unity's: a xar archive with an uncompressed TargetSupport.pkg.tmp/Payload containing a
+    // gzip-compressed odc cpio archive.
     private string Package(params (string Name, string? Content)[] entries)
     {
         var cpio = new MemoryStream();
@@ -43,7 +44,7 @@ public sealed class MacPackageTests : IDisposable
         using var file = File.Create(path);
         file.Write(header);
         file.Write(compressedToc.ToArray());
-        file.Write(new byte[20]); // the heap starts with the TOC's checksum
+        file.Write(new byte[20]); // The heap starts with the TOC checksum.
         file.Write(payload.ToArray());
         return path;
     }

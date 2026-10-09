@@ -1,6 +1,6 @@
-# Keeps the releases complete: every 6 hours, and whenever packages.json or the packager changes, builds the Unity versions
-# whose release is missing a package (or has one from an older definition in packages.json) and publishes them.
-# Run it by hand to build chosen versions, or to rebuild them.
+# Keeps the releases complete. Every six hours, and whenever packages.json or the packager changes, builds and publishes
+# the Unity versions whose release is missing a package or contains one from an older definition in packages.json.
+# Run it manually to build or rebuild specific versions.
 name: Sync releases
 
 on:
@@ -55,7 +55,7 @@ jobs:
           LIMIT: ${{ inputs.limit || '40' }}
         run: dotnet run --project Packager -c Release --no-build -- plan --repository "$GITHUB_REPOSITORY" --versions "$VERSIONS" $REBUILD --limit "$LIMIT" --github-output "$GITHUB_OUTPUT"
 
-  # A runner per version: Unity's macOS module packages are downloaded and read directly, no installer runs.
+  # One runner per version. Unity's macOS module packages are downloaded and read directly; no installer is executed.
   build:
     needs: plan
     if: needs.plan.outputs.count != '0'

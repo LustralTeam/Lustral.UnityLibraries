@@ -6,21 +6,22 @@ using System.Xml.Linq;
 namespace Lustral.UnityLibraries;
 
 /// <summary>
-/// Reads Unity's macOS module installers (<c>.pkg</c>), the way MelonLoader.UnityDependencies gets its files, but without
-/// 7-Zip or macOS: a <c>.pkg</c> is a xar archive whose <c>Payload</c> is a gzip-compressed cpio archive ("odc" format)
-/// of the module's files, at the paths they'd have in the editor's <c>PlaybackEngines/&lt;platform&gt;Support</c> folder.
-/// Streams it once and writes only the files asked for.
+/// Reads Unity's macOS module installers (<c>.pkg</c>), the source also used by MelonLoader.UnityDependencies, without
+/// requiring 7-Zip or macOS. A <c>.pkg</c> file is a xar archive whose <c>Payload</c> is a gzip-compressed cpio archive
+/// ("odc" format) containing the module's files, at their paths within the editor's
+/// <c>PlaybackEngines/&lt;platform&gt;Support</c> folder. The package is streamed once, and only the requested files are
+/// written.
 /// </summary>
 internal static class MacPackage
 {
-    /// <param name="wanted">Takes a file's path in the payload (<c>Variations/.../UnityEngine.dll</c>, forward slashes).</param>
-    /// <returns>How many files were written.</returns>
+    /// <param name="wanted">Selects files by their path in the payload (<c>Variations/.../UnityEngine.dll</c>, with forward slashes).</param>
+    /// <returns>The number of files written.</returns>
     public static int Extract(string packagePath, string destination, Func<string, bool> wanted)
     {
         using var file = File.OpenRead(packagePath);
         var payloads = Payloads(file);
         if (payloads.Count == 0)
-            throw new InvalidDataException($"{Path.GetFileName(packagePath)} has no Payload: not a module installer package");
+            throw new InvalidDataException($"{Path.GetFileName(packagePath)} has no Payload and is not a module installer package");
         var written = 0;
         foreach (var (offset, length) in payloads)
         {
@@ -31,7 +32,7 @@ internal static class MacPackage
         return written;
     }
 
-    /// <summary>Where each <c>Payload</c> in the xar archive is: absolute offset and length.</summary>
+    /// <summary>Returns the location of each <c>Payload</c> in the xar archive: its absolute offset and length.</summary>
     internal static List<(long Offset, long Length)> Payloads(Stream xar)
     {
         Span<byte> header = stackalloc byte[28];
@@ -58,7 +59,7 @@ internal static class MacPackage
             .ToList();
     }
 
-    /// <summary>Old portable cpio ("odc", <c>070707</c>): a 76-character octal header, the name, then the data.</summary>
+    /// <summary>Old portable cpio format ("odc", <c>070707</c>): a 76-character octal header, followed by the name and the data.</summary>
     internal static int ExtractCpio(Stream cpio, string destination, Func<string, bool> wanted)
     {
         var root = Path.GetFullPath(destination);
@@ -84,7 +85,7 @@ internal static class MacPackage
             {
                 var target = Path.GetFullPath(Path.Combine(root, path));
                 if (!target.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                    throw new InvalidDataException($"cpio entry {name} points outside the folder");
+                    throw new InvalidDataException($"cpio entry {name} resolves outside the folder");
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 using var output = File.Create(target);
                 Copy(cpio, output, fileSize);
@@ -115,13 +116,13 @@ internal static class MacPackage
         {
             var read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, count));
             if (read == 0)
-                throw new EndOfStreamException("The cpio archive ends inside a file");
+                throw new EndOfStreamException("The cpio archive ends within a file");
             destination.Write(buffer, 0, read);
             count -= read;
         }
     }
 
-    /// <summary>A read-only window of another stream, from its current position.</summary>
+    /// <summary>A read-only view of a range of another stream, starting at its current position.</summary>
     private sealed class WindowStream(Stream inner, long length) : Stream
     {
         private long _remaining = length;

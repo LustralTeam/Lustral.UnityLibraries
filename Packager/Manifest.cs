@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 namespace Lustral.UnityLibraries;
 
 /// <summary>
-/// <c>manifest.json</c>, an asset of every release: what each package holds and where it came from. Consumers read it
-/// first, then download the package they need and check its SHA-256.
+/// <c>manifest.json</c>, an asset of every release, describing the contents and origin of each package. Consumers read it
+/// first, then download the required package and verify its SHA-256 hash.
 /// </summary>
 internal sealed partial class Manifest
 {
@@ -17,10 +17,10 @@ internal sealed partial class Manifest
 
     public required string UnityVersion { get; init; }
 
-    /// <summary>Unity's short changeset id for the version.</summary>
+    /// <summary>Unity's short changeset ID for the version.</summary>
     public required string Revision { get; init; }
 
-    /// <summary>By asset name.</summary>
+    /// <summary>The packages, by asset name.</summary>
     public SortedDictionary<string, PackageEntry> Packages { get; init; } = new(StringComparer.Ordinal);
 
     public static Manifest Read(string path) =>
@@ -28,22 +28,22 @@ internal sealed partial class Manifest
 
     public void Write(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this, Json.Options) + "\n");
 
-    /// <summary>Takes these packages' entries over, keeping the others: a release updated for one package keeps the rest.</summary>
+    /// <summary>Replaces the entries of the given packages and keeps the others, so that updating one package preserves the rest.</summary>
     public Manifest Merge(Manifest newer)
     {
         if (newer.UnityVersion != UnityVersion)
-            throw new ArgumentException($"Can't merge {newer.UnityVersion}'s manifest into {UnityVersion}'s");
+            throw new ArgumentException($"Cannot merge the manifest for {newer.UnityVersion} into the manifest for {UnityVersion}");
         var packages = new SortedDictionary<string, PackageEntry>(Packages, StringComparer.Ordinal);
         foreach (var (asset, entry) in newer.Packages)
             packages[asset] = entry;
         return new Manifest { UnityVersion = UnityVersion, Revision = newer.Revision, Packages = packages };
     }
 
-    /// <summary>The release's description: a table of the packages, and the marker the planner reads back.</summary>
+    /// <summary>Returns the release description: a table of the packages and the marker that the planner reads.</summary>
     public string ReleaseNotes()
     {
         var text = new StringBuilder();
-        text.Append("Unity's libraries for **Unity ").Append(UnityVersion).Append("** (changeset `").Append(Revision).AppendLine("`), from Unity's own installers.");
+        text.Append("Unity's libraries for **Unity ").Append(UnityVersion).Append("** (changeset `").Append(Revision).AppendLine("`), from Unity's module packages.");
         text.AppendLine();
         text.AppendLine("| Package | Files | Size | SHA-256 |");
         text.AppendLine("| --- | --- | --- | --- |");
@@ -65,7 +65,7 @@ internal sealed partial class Manifest
 
     private const string MarkerName = "lustral-unity-libraries";
 
-    /// <summary>What a release's description says it holds, by asset; empty when it has no marker.</summary>
+    /// <summary>Returns the contents recorded in a release description, by asset; empty if it has no marker.</summary>
     public static IReadOnlyDictionary<string, MarkerEntry> ReadMarker(string? releaseNotes)
     {
         var match = releaseNotes is null ? Match.Empty : MarkerPattern().Match(releaseNotes);
@@ -91,7 +91,7 @@ internal enum PackageState
 {
     Built,
 
-    /// <summary>The version's module doesn't have the files (or Unity doesn't offer the module); not retried until the definition changes.</summary>
+    /// <summary>The version's module does not contain the files, or Unity does not offer the module. Not retried until the definition changes.</summary>
     Unavailable,
 }
 
@@ -99,12 +99,12 @@ internal sealed record MarkerEntry(string Definition, PackageState State);
 
 internal sealed class PackageEntry
 {
-    /// <summary><see cref="PackageDefinition.Definition"/> when it was built.</summary>
+    /// <summary>The <see cref="PackageDefinition.Definition"/> at build time.</summary>
     public required string Definition { get; init; }
 
     public required PackageState State { get; init; }
 
-    /// <summary>Why it's unavailable.</summary>
+    /// <summary>The reason the package is unavailable.</summary>
     public string? Reason { get; init; }
 
     public required string Module { get; init; }
@@ -113,7 +113,7 @@ internal sealed class PackageEntry
 
     public string? ModuleMd5 { get; init; }
 
-    /// <summary>The folder the files came from, relative to the module's install folder.</summary>
+    /// <summary>The folder containing the files, relative to the module's installation folder.</summary>
     public string? Source { get; init; }
 
     public long? Size { get; init; }
@@ -125,5 +125,5 @@ internal sealed class PackageEntry
     public DateTimeOffset Built { get; init; }
 }
 
-/// <param name="Name">Path inside the zip, with forward slashes.</param>
+/// <param name="Name">The path inside the zip file, with forward slashes.</param>
 internal sealed record FileEntry(string Name, long Size, string Sha256);

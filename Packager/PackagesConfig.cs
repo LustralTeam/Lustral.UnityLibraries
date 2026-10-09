@@ -5,12 +5,12 @@ using System.Text.Json.Serialization;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary><c>packages.json</c>: what each release holds.</summary>
+/// <summary><c>packages.json</c>: the package definitions for each release.</summary>
 internal sealed class PackagesConfig
 {
     public const string FileName = "packages.json";
 
-    /// <summary>The oldest Unity version to publish.</summary>
+    /// <summary>The earliest Unity version to publish.</summary>
     public required string MinimumVersion { get; init; }
 
     public required IReadOnlyList<PackageDefinition> Packages { get; init; }
@@ -39,9 +39,9 @@ internal sealed class PackagesConfig
             if (!package.Asset.EndsWith(".zip", StringComparison.Ordinal) || package.Asset.Contains('/') || package.Asset.Contains('\\'))
                 throw new InvalidDataException($"{FileName}: asset \"{package.Asset}\" must be a file name ending in .zip");
             if (string.IsNullOrWhiteSpace(package.Module))
-                throw new InvalidDataException($"{FileName}: {package.Asset} needs the Unity module it comes from (\"module\")");
+                throw new InvalidDataException($"{FileName}: {package.Asset} requires the Unity module that contains its files (\"module\")");
             if (package.Sources.Count == 0 || package.Files.Count == 0)
-                throw new InvalidDataException($"{FileName}: {package.Asset} needs \"sources\" and \"files\"");
+                throw new InvalidDataException($"{FileName}: {package.Asset} requires \"sources\" and \"files\"");
             if (package.MinimumVersion is { } minimum)
                 _ = UnityVersion.Parse(minimum);
         }
@@ -50,32 +50,32 @@ internal sealed class PackagesConfig
     }
 }
 
-/// <summary>One zip asset in every release: files from one Unity module.</summary>
+/// <summary>A zip asset included in every release, containing files from a single Unity module.</summary>
 internal sealed class PackageDefinition
 {
-    /// <summary>The release asset's file name, like <c>Managed-Windows.zip</c>.</summary>
+    /// <summary>The release asset's file name, for example <c>Managed-Windows.zip</c>.</summary>
     public required string Asset { get; init; }
 
     public string? Description { get; init; }
 
-    /// <summary>The Unity module (Unity's id, like <c>windows-il2cpp</c>) whose installer the files come from.</summary>
+    /// <summary>The Unity module whose installer contains the files, by Unity's ID, for example <c>windows-il2cpp</c>.</summary>
     public required string Module { get; init; }
 
     /// <summary>
-    /// Folders in the installed module, relative to its install folder (Unity's editor folder), tried in order: the first
-    /// that exists is used, since Unity renames them between versions.
+    /// Folders in the extracted module, relative to its installation folder (Unity's editor folder), tried in order. The
+    /// first existing folder is used, because Unity renames them between versions.
     /// </summary>
     public required IReadOnlyList<string> Sources { get; init; }
 
-    /// <summary>Which files, relative to the source folder: <c>*</c> and <c>?</c> within a name, <c>**</c> across folders.</summary>
+    /// <summary>The files to include, relative to the source folder: <c>*</c> and <c>?</c> match within a name, <c>**</c> across folders.</summary>
     public required IReadOnlyList<string> Files { get; init; }
 
-    /// <summary>The oldest Unity version this package is built for; default: the config's.</summary>
+    /// <summary>The earliest Unity version for which this package is built; defaults to the configuration's minimum.</summary>
     public string? MinimumVersion { get; init; }
 
     /// <summary>
-    /// Identifies what the package is made of. Changing the module, sources, files or minimum version changes it, so
-    /// releases built from the old definition get the asset rebuilt; the description doesn't.
+    /// Identifies the package's composition. Changing the module, sources, files or minimum version changes this value, so
+    /// that releases built from the previous definition have the asset rebuilt; changing the description does not.
     /// </summary>
     [JsonIgnore]
     public string Definition

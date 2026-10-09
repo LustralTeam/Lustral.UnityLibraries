@@ -4,14 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>Builds one package's zip from an installed module, and its manifest entry.</summary>
+/// <summary>Builds a package's zip file from an extracted module, together with its manifest entry.</summary>
 internal static class PackageBuilder
 {
-    // Fixed, so a rebuild of the same files makes the same entries.
+    // A fixed timestamp, so that rebuilding the same files produces identical entries.
     private static readonly DateTimeOffset EntryTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     /// <param name="installed">The module's files, at their paths in its package.</param>
-    /// <param name="contents">What the module has, for the reason when the sources aren't there; default: its Variations folders.</param>
+    /// <param name="contents">A description of the module's contents, used in the reason if the source folders are missing; defaults to its Variations folders.</param>
     public static PackageEntry Build(PackageDefinition package, UnityModule? module, string installed, string outputDirectory, string? contents = null)
     {
         var source = package.Sources.FirstOrDefault(s => ResolveDirectory(installed, s) is not null);
@@ -73,8 +73,9 @@ internal static class PackageBuilder
     };
 
     /// <summary>
-    /// The folder at <paramref name="relative"/>, matching each part without regard to case: Unity's folder names vary in
-    /// case between versions (<c>WindowsStandaloneSupport</c>, <c>windowsstandalonesupport</c>), and Linux file systems care.
+    /// Returns the folder at <paramref name="relative"/>, matching each part case-insensitively. The case of Unity's folder
+    /// names varies between versions (<c>WindowsStandaloneSupport</c>, <c>windowsstandalonesupport</c>), and Linux file
+    /// systems are case-sensitive.
     /// </summary>
     internal static string? ResolveDirectory(string root, string relative)
     {
@@ -91,7 +92,7 @@ internal static class PackageBuilder
         return Directory.Exists(current) ? current : null;
     }
 
-    /// <summary><c>*</c> and <c>?</c> within one path part, <c>**</c> across parts; without regard to case.</summary>
+    /// <summary>Matches <c>*</c> and <c>?</c> within a path part and <c>**</c> across parts, case-insensitively.</summary>
     internal static Regex Glob(string pattern)
     {
         var regex = Regex.Escape(pattern.Replace('\\', '/'))
@@ -102,7 +103,7 @@ internal static class PackageBuilder
         return new Regex($"^{regex}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
-    // What's there instead, for the reason: the Variations folders, which is where package definitions usually go wrong.
+    // Describes the existing Variations folders for the reason, as package definitions are most often incorrect there.
     private static string Describe(string installed)
     {
         var variations = Directory.Exists(installed)

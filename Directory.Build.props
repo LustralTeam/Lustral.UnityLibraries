@@ -4,7 +4,7 @@
     <LangVersion>14</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Dependabot keeps the few packages current; restore stays off the network beyond fetching them. -->
+    <!-- Dependabot keeps the few package references up to date; restore uses the network only to fetch them. -->
     <NuGetAudit>false</NuGetAudit>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Builds and publishes the per-Unity-version releases. No dependencies: Unity's and GitHub's APIs over HttpClient and
-       the gh CLI, Unity's own installers for the files. -->
+  <!-- Builds and publishes the releases for each Unity version. Has no package dependencies: it uses Unity's and GitHub's
+       APIs through HttpClient and the gh CLI, and reads the files from Unity's module packages. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Lustral.UnityLibraries</RootNamespace>

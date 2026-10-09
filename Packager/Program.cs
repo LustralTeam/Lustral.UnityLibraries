@@ -2,19 +2,20 @@ using System.Text.Json;
 using Lustral.UnityLibraries;
 
 const string Usage = """
-    Packager: builds the releases of Lustral.UnityLibraries, one per Unity version, from Unity's own module packages.
+    Packager: builds the releases of Lustral.UnityLibraries, one per Unity version, from Unity's module packages.
 
     Usage:
       plan     [--repository owner/name] [--versions v1,v2] [--rebuild] [--limit n] [--github-output file]
-               What to build: final Unity releases from packages.json's minimum on whose release is missing a package, or
-               has one from an older definition. Without --repository, as if there were no releases yet.
+               Lists the versions to build: final Unity releases from the minimum in packages.json onward whose release
+               is missing a package or contains one from an older definition. Without --repository, assumes that no
+               releases exist yet.
       build    --version <unity version> [--packages a.zip,b.zip] [--output dir] [--work dir]
-               Downloads each package's Unity module (the macOS editor's .pkg, which any OS can read), takes the files out
-               and zips them into --output, with a manifest.json for them.
+               Downloads each package's Unity module (the macOS editor's .pkg, which can be read on any OS), extracts the
+               files and writes the zip files to --output, together with a manifest.json.
       publish  --repository owner/name --version <unity version> --input dir [--target commit]
-               Creates the version's release with what build wrote, or updates the release's packages and manifest.
+               Creates the version's release from the output of build, or updates the release's packages and manifest.
 
-    Options shared by all: --config <packages.json> (default: the one in the current folder).
+    Common option: --config <packages.json> (default: packages.json in the current folder).
     """;
 
 if (args.Length == 0 || args[0] is "-h" or "--help")
@@ -68,7 +69,7 @@ async Task<int> Plan()
     var only = options.List("versions").Select(UnityVersion.Parse).ToList();
     var unknown = only.Where(v => releases.All(r => r.Version != v)).ToList();
     if (unknown.Count > 0)
-        throw new ArgumentException($"Unity doesn't list {string.Join(", ", unknown)}");
+        throw new ArgumentException($"Unity does not list {string.Join(", ", unknown)}");
     var limit = int.TryParse(options.Get("limit"), out var n) && n > 0 ? n : int.MaxValue;
     var work = Planner.Plan(config, releases, existing, only, options.Has("rebuild"), limit);
 
@@ -92,7 +93,7 @@ async Task<int> Build()
     var packages = options.List("packages") is { Count: > 0 } names ? names.Select(config.Package).ToList() : config.Packages.ToList();
 
     var release = (await UnityReleases.ListAsync(http, cancel.Token)).FirstOrDefault(r => r.Version == version)
-                  ?? throw new ArgumentException($"Unity doesn't list {version}");
+                  ?? throw new ArgumentException($"Unity does not list {version}");
     Console.WriteLine($"Building {version} (changeset {release.Revision}): {string.Join(", ", packages.Select(p => p.Asset))}");
     if (Directory.Exists(output))
         Directory.Delete(output, recursive: true);
@@ -113,7 +114,7 @@ async Task<int> Build()
             Directory.Delete(moduleWork, recursive: true);
         var installer = await ModuleDownloader.DownloadAsync(http, module, moduleWork, cancel.Token);
 
-        // Only the files under the packages' source folders are written; the variations seen are noted for the reasons.
+        // Only the files under the packages' source folders are written; the variations found are recorded for the reasons.
         var extracted = Path.Combine(moduleWork, "files");
         var prefixes = group.SelectMany(p => p.Sources).Select(s => s.Trim('/') + "/").ToList();
         var variations = new SortedSet<string>(StringComparer.Ordinal);
@@ -124,9 +125,10 @@ async Task<int> Build()
                 variations.Add($"Variations/{parts[1]}");
             return prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         });
-        // A package with no player variations at all isn't laid out as expected: fail, so it's looked at and retried.
+        // A package without any player variations does not have the expected layout; the build fails so that it is
+        // investigated and retried.
         if (variations.Count == 0)
-            throw new InvalidDataException($"{Path.GetFileName(installer)} has no Variations folder; Unity changed how the module is packaged");
+            throw new InvalidDataException($"{Path.GetFileName(installer)} has no Variations folder; Unity may have changed the module's package layout");
         Console.WriteLine($"  {module.Id}: {count} files extracted; variations: {string.Join(", ", variations.Select(v => v[11..]))}");
 
         foreach (var package in group)
@@ -137,7 +139,7 @@ async Task<int> Build()
                 ? $"  {package.Asset}: {entry.Files!.Count} files from {entry.Source}, {entry.Size / 1024} KB"
                 : $"  {package.Asset}: not available ({entry.Reason})");
         }
-        Directory.Delete(moduleWork, recursive: true); // runners have little disk to spare
+        Directory.Delete(moduleWork, recursive: true); // Runners have limited disk space.
     }
     manifest.Write(Path.Combine(output, Manifest.FileName));
     Console.WriteLine($"Wrote {output}");
@@ -151,7 +153,7 @@ async Task<int> Publish()
     var input = Path.GetFullPath(options.Require("input"));
     var built = Manifest.Read(Path.Combine(input, Manifest.FileName));
     if (built.UnityVersion != version)
-        throw new ArgumentException($"{input} holds {built.UnityVersion}, not {version}");
+        throw new ArgumentException($"{input} contains {built.UnityVersion}, not {version}");
     var github = new GitHub(repository);
 
     var download = Path.Combine(Path.GetTempPath(), $"unitylibraries-{version}-{Guid.NewGuid():N}");
@@ -175,8 +177,8 @@ async Task<int> Publish()
     }
     else
     {
-        // The description, which carries the marker the planner trusts, goes on last: a release whose uploads failed
-        // halfway has none, so the next run builds it again.
+        // The description, which contains the marker that the planner relies on, is set last, so that a release whose
+        // uploads failed partway has no marker and is built again by the next run.
         Console.WriteLine($"Creating release {version}: {string.Join(", ", assets.Select(Path.GetFileName))}");
         var placeholder = Path.Combine(download, "placeholder.md");
         await File.WriteAllTextAsync(placeholder, $"Unity {version}: uploading.");

@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 namespace Lustral.UnityLibraries;
 
 /// <summary>
-/// A Unity version as Unity writes it, <c>6000.0.58f2</c>: major, minor, patch, the release type (<c>a</c>lpha,
-/// <c>b</c>eta, <c>f</c>inal, <c>p</c>atch, e<c>x</c>perimental) and its build number.
+/// A Unity version in Unity's notation, for example <c>6000.0.58f2</c>: major, minor and patch numbers, the release type
+/// (<c>a</c>lpha, <c>b</c>eta, <c>f</c>inal, <c>p</c>atch, e<c>x</c>perimental) and its build number.
 /// </summary>
 internal readonly partial record struct UnityVersion(int Major, int Minor, int Patch, char Type, int Build) : IComparable<UnityVersion>
 {
@@ -24,7 +24,7 @@ internal readonly partial record struct UnityVersion(int Major, int Minor, int P
     }
 
     public static UnityVersion Parse(string text) =>
-        TryParse(text, out var version) ? version : throw new FormatException($"\"{text}\" isn't a Unity version like 6000.0.58f2");
+        TryParse(text, out var version) ? version : throw new FormatException($"\"{text}\" is not a Unity version (for example 6000.0.58f2)");
 
     public int CompareTo(UnityVersion other)
     {

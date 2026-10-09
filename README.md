@@ -1,40 +1,46 @@
 # Lustral Unity Libraries
 
-Unity's managed runtime libraries, one release per Unity version, for Lustral's interop
-generation. IL2CPP games ship only the parts of Unity's API they use; Lustral's generator puts the rest back
-("unstripping") from these libraries, so mods can use all of Unity's API on Windows and Linux IL2CPP games.
+Unity's managed runtime libraries, published as one release per Unity version, for use by
+[Lustral](https://github.com/LustralTeam/Lustral) during interop generation. IL2CPP builds include only the parts of
+Unity's API that the game uses. Lustral's generator restores the remaining API from these libraries ("unstripping"),
+so that mods can use Unity's complete API on Windows and Linux IL2CPP games.
 
-The releases are built automatically, by GitHub Actions, from Unity's own module packages, as
-[MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies) does.
+Releases are built automatically by GitHub Actions from Unity's module packages, following the same approach as
+[MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies).
 
-## Releases
+## Release Contents
 
-Each release is tagged with the exact Unity version, like `6000.0.58f2`, and holds:
+Each release is tagged with the exact Unity version, for example `6000.0.58f2`, and contains the following assets:
 
-| Asset | What |
+| Asset | Contents |
 | --- | --- |
-| `Managed-Windows.zip` | Unity's managed libraries (`UnityEngine.*.dll` and friends) from the Windows x64 player. |
-| `Managed-Linux.zip` | The same from the Linux x64 IL2CPP player. |
-| `manifest.json` | What each package holds and where it came from, with SHA-256 hashes. |
+| `Managed-Windows.zip` | Unity's managed libraries (`UnityEngine.*.dll` and related assemblies) from the Windows x64 player. |
+| `Managed-Linux.zip` | Unity's managed libraries from the Linux x64 IL2CPP player. |
+| `manifest.json` | The contents and origin of each package, with SHA-256 hashes. |
 
-The zips hold the libraries at their root. A package Unity doesn't offer for a version (Linux IL2CPP isn't there for a
-few older ones) is missing from that release, and `manifest.json` says why.
+The libraries are stored at the root of each zip file. If Unity does not provide a package's module for a version (the
+Linux IL2CPP module is unavailable for some older versions), the package is omitted from that release and
+`manifest.json` states the reason.
 
-**About `Managed-Windows.zip`:** Unity publishes no Windows IL2CPP module for macOS, so the Windows libraries come from
-its Windows Mono module: the `win64_player_nondevelopment_mono` player. For 2022.3.62f2 we compared them with the Windows
-editor's own IL2CPP player: the managed code is the same apart from attribute order, a few inlining hints and one
-equivalent field initializer, and 67 of the 68 files are byte-identical to the Windows editor's Mono player (the 68th,
-`UnityEngine.dll`, has the same type forwards and module id in another order). That's a closer match than the Android
-libraries MelonLoader uses.
+### Source of the Windows Libraries
 
-Download URLs follow the tag:
+Unity does not publish a Windows IL2CPP module for macOS, so the Windows libraries are taken from the Windows Mono
+module (the `win64_player_nondevelopment_mono` player). For Unity 2022.3.62f2, these libraries were compared with
+those of the Windows editor's IL2CPP player: the managed code is equivalent, differing only in attribute order, a few
+inlining hints and one equivalent field initializer. In addition, 67 of the 68 files are byte-identical to those of the
+Windows editor's Mono player; the remaining file, `UnityEngine.dll`, contains the same type forwards and module ID in a
+different order. This is a closer match than the Android libraries used by MelonLoader.
+
+### Download Addresses
+
+Download addresses are derived from the release tag:
 
 ```
 https://github.com/LustralTeam/Lustral.UnityLibraries/releases/download/<unity version>/manifest.json
 https://github.com/LustralTeam/Lustral.UnityLibraries/releases/download/<unity version>/Managed-Windows.zip
 ```
 
-### manifest.json
+### Manifest Format
 
 ```json
 {
@@ -64,12 +70,12 @@ https://github.com/LustralTeam/Lustral.UnityLibraries/releases/download/<unity v
 }
 ```
 
-Consumers read the manifest, download the package they need, and check its `sha256`.
+Consumers read the manifest, download the required package and verify its `sha256` hash.
 
-## What gets built
+## Package Definitions
 
-[`packages.json`](packages.json) decides. Every final (`f`) Unity release from `minimumVersion` on gets a release, and
-each package in the file is a zip in it:
+The packages are defined in [`packages.json`](packages.json). A release is created for every final (`f`) Unity
+release from `minimumVersion` onward, and each package in the file is a zip asset of that release:
 
 ```json
 {
@@ -84,40 +90,43 @@ each package in the file is a zip in it:
 }
 ```
 
-- `module` is the Unity module the files come from, by the id Unity's release API uses for the macOS editor's modules
-  (`windows-mono`, `linux-il2cpp`, `linux-mono`, `android`, ...).
-- `sources` are folders in the module's package, tried in order: Unity renames them between versions
-  (`win64_player_nondevelopment_mono` was `win64_nondevelopment_mono` in 2019.4), and from 6000.6 keeps the libraries
-  only in the shared `Variations/mono/Managed` and `Variations/il2cpp/Managed` folders, whose code is the player's.
-- `files` picks files in the source folder: `*` and `?` within a name, `**` across folders.
-- `minimumVersion` (optional) starts a package at a later Unity version than the rest.
+- `module`: the Unity module containing the files, identified by the ID that Unity's release API uses for the macOS
+  editor's modules (`windows-mono`, `linux-il2cpp`, `linux-mono`, `android`, ...).
+- `sources`: folders in the module's package, tried in order. Unity renames these folders between versions
+  (`win64_player_nondevelopment_mono` was named `win64_nondevelopment_mono` in 2019.4), and from Unity 6000.6 stores the
+  libraries only in the shared `Variations/mono/Managed` and `Variations/il2cpp/Managed` folders, which contain the
+  player's code.
+- `files`: the files to include from the source folder. `*` and `?` match within a name, and `**` matches across
+  folders.
+- `minimumVersion` (optional): a later starting Unity version for a single package.
 
-**Adding a package, or changing one, updates the existing releases**: each package's definition has a hash, recorded in
-the release, and the next run builds the package in every release that doesn't have it, or has it from another
-definition, without touching the other packages. A package whose files aren't in a version's module is recorded as
-unavailable, with the player variations the module does have, and isn't retried until its definition changes.
+**Adding or changing a package updates existing releases.** Each package definition has a hash that is recorded in the
+release. The next run builds the package for every release that does not contain it or contains it from a different
+definition, without affecting other packages. If a package's files are not present in a version's module, the package
+is recorded as unavailable, together with the player variations the module contains, and is not retried until its
+definition changes.
 
-## How it runs
+## Automated Builds
 
-[`.github/workflows/sync.yml`](.github/workflows/sync.yml) runs every 6 hours, when `packages.json` or the packager
-changes, and by hand, all on Ubuntu runners:
+[`.github/workflows/sync.yml`](.github/workflows/sync.yml) runs every six hours, whenever `packages.json` or the
+packager changes, and on manual dispatch. All jobs run on Ubuntu runners:
 
-1. **Plan**: asks Unity's release API (the one Unity Hub uses) for every release, compares with this repository's
-   releases, and picks up to 40 versions to build, newest first.
-2. **Build and publish**, a runner per version: downloads each needed module's macOS package (`.pkg`) from Unity's
-   servers, checks it against the MD5 Unity publishes, reads the files out of it, zips each package and creates the
-   release, or updates the packages that changed in an existing one.
+1. **Plan:** queries Unity's release API (the API used by Unity Hub) for all releases, compares them with this
+   repository's releases, and selects up to 40 versions to build, newest first.
+2. **Build and publish:** one runner per version downloads each required module's macOS package (`.pkg`) from Unity's
+   servers, verifies it against the MD5 hash published by Unity, extracts the files, creates a zip file for each
+   package, and creates the release or updates the changed packages of an existing release.
 
-A `.pkg` is a xar archive whose `Payload` is a gzip-compressed cpio archive; the packager reads that itself
-([`MacPackage.cs`](Packager/MacPackage.cs)), streaming the package once and writing only the folders the packages use.
-Nothing Unity ships is run.
+A `.pkg` file is a xar archive whose `Payload` is a gzip-compressed cpio archive. The packager reads this format directly
+([`MacPackage.cs`](Packager/MacPackage.cs)), streaming each package once and writing only the folders that the packages
+use. No software distributed by Unity is executed.
 
-To build or rebuild chosen versions, run the workflow by hand with their versions (and "rebuild" to replace what's
-there).
+To build or rebuild specific versions, run the workflow manually with those versions, and select "rebuild" to replace
+existing assets.
 
-## Running it locally
+## Running Locally
 
-The packager is a .NET 10 console app and runs on any OS:
+The packager is a .NET 10 console application and runs on any operating system:
 
 ```sh
 dotnet run --project Packager -- plan --limit 5
@@ -125,10 +134,10 @@ dotnet run --project Packager -- build --version 2022.3.62f2
 dotnet run --project Packager.Tests
 ```
 
-`build` downloads the modules (a few hundred MB per version) into `work/` and writes the release's files to
-`out/<version>/`. `publish` needs the GitHub CLI and a token (`GH_TOKEN`).
+`build` downloads the modules (several hundred MB per version) to `work/` and writes the release files to
+`out/<version>/`. `publish` requires the GitHub CLI and a token (`GH_TOKEN`).
 
-## Unity
+## Legal Notice
 
 Unity's libraries are part of the Unity software. Their use is subject to the
 [Unity Terms of Service](https://unity.com/legal/terms-of-service) and the

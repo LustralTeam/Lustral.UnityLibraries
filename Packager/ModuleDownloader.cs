@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>Downloads a Unity module's installer from Unity's servers and checks it against the MD5 Unity's API gives.</summary>
+/// <summary>Downloads a Unity module's installer from Unity's servers and verifies it against the MD5 hash provided by Unity's API.</summary>
 internal static class ModuleDownloader
 {
     public static async Task<string> DownloadAsync(HttpClient http, UnityModule module, string directory, CancellationToken cancellation)
@@ -30,7 +30,7 @@ internal static class ModuleDownloader
                 }
                 var actual = Convert.ToHexStringLower(md5.GetHashAndReset());
                 if (module.Md5 is { } expected && actual != expected)
-                    throw new InvalidDataException($"{Path.GetFileName(path)}'s MD5 is {actual}; Unity says {expected}");
+                    throw new InvalidDataException($"MD5 mismatch for {Path.GetFileName(path)}: {actual}, expected {expected}");
                 return path;
             }
             catch (Exception e) when (e is HttpRequestException or IOException or InvalidDataException && attempt < 3)

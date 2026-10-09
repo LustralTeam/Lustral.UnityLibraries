@@ -3,10 +3,10 @@ using System.Text.Json;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>The repository's releases, through the GitHub CLI (<c>gh</c>, on every GitHub runner; it reads <c>GH_TOKEN</c>).</summary>
+/// <summary>Accesses the repository's releases through the GitHub CLI (<c>gh</c>, available on all GitHub runners; it reads <c>GH_TOKEN</c>).</summary>
 internal sealed class GitHub(string repository)
 {
-    /// <summary>Every release's marker, by tag.</summary>
+    /// <summary>Returns the marker of each release, by tag.</summary>
     public async Task<Dictionary<string, IReadOnlyDictionary<string, MarkerEntry>>> ReleaseMarkersAsync()
     {
         var output = await RunAsync("api", "--paginate", $"repos/{repository}/releases?per_page=100", "--jq", ".[] | {tag: .tag_name, body: .body} | @json");
@@ -23,7 +23,7 @@ internal sealed class GitHub(string repository)
 
     public async Task<bool> ReleaseExistsAsync(string tag) => (await TryRunAsync("release", "view", tag, "--repo", repository, "--json", "tagName")).Success;
 
-    /// <summary>The release's manifest, or null when it has none.</summary>
+    /// <summary>Returns the release's manifest, or null if it has none.</summary>
     public async Task<Manifest?> DownloadManifestAsync(string tag, string directory)
     {
         var result = await TryRunAsync("release", "download", tag, "--repo", repository, "--pattern", Manifest.FileName, "--dir", directory, "--clobber");
@@ -54,7 +54,7 @@ internal sealed class GitHub(string repository)
         var start = new ProcessStartInfo("gh") { RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in arguments)
             start.ArgumentList.Add(argument);
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Couldn't start gh");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start gh");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();

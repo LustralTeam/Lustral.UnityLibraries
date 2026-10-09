@@ -3,21 +3,22 @@ using System.Text.Json;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>A Unity release and the modules its macOS editor offers, whose packages hold the player files.</summary>
+/// <summary>A Unity release and the modules offered for its macOS editor, whose packages contain the player files.</summary>
 internal sealed record UnityRelease(UnityVersion Version, string Revision, IReadOnlyDictionary<string, UnityModule> Modules);
 
-/// <param name="Md5">The installer's MD5, lowercase hex, when Unity gives it.</param>
+/// <param name="Md5">The installer's MD5 hash, as lowercase hexadecimal, if Unity provides it.</param>
 internal sealed record UnityModule(string Id, Uri Url, string Type, long Size, string? Md5);
 
 /// <summary>
-/// Unity's public release API (<c>services.api.unity.com/unity/editor/release/v1/releases</c>), the one Unity Hub
-/// uses. Extended LTS releases are asked for too, since games ship on them. The modules are the macOS (x64) editor's:
-/// its installers are plain <c>.pkg</c> archives (see <see cref="MacPackage"/>), where Windows' need running.
+/// Unity's public release API (<c>services.api.unity.com/unity/editor/release/v1/releases</c>), as used by Unity Hub.
+/// Extended LTS releases are also requested, because games are built with them. The modules are those of the macOS (x64)
+/// editor, whose installers are plain <c>.pkg</c> archives (see <see cref="MacPackage"/>), whereas the Windows installers
+/// would have to be executed.
 /// </summary>
 internal static class UnityReleases
 {
     private const string Endpoint = "https://services.api.unity.com/unity/editor/release/v1/releases";
-    private const int PageSize = 25; // the API's maximum
+    private const int PageSize = 25; // The API's maximum.
 
     public static async Task<IReadOnlyList<UnityRelease>> ListAsync(HttpClient http, CancellationToken cancellation)
     {
@@ -35,7 +36,7 @@ internal static class UnityReleases
             if (results.GetArrayLength() == 0 || offset + PageSize >= document.RootElement.GetProperty("total").GetInt32())
                 break;
         }
-        // The API lists a version once per stream it's in; keep one.
+        // The API lists a version once for each stream that contains it; only one entry is kept.
         return releases.GroupBy(r => r.Version).Select(g => g.First()).OrderByDescending(r => r.Version).ToList();
     }
 
@@ -62,8 +63,8 @@ internal static class UnityReleases
     }
 
     /// <summary>
-    /// Unity's <c>integrity</c> is <c>md5-</c> and base64. Base64 of what varies: the hex digest as text (what the API
-    /// returns today) or the 16 raw bytes.
+    /// Unity's <c>integrity</c> value is <c>md5-</c> followed by base64, which encodes either the hexadecimal digest as
+    /// text (as the API currently returns) or the 16 raw bytes.
     /// </summary>
     internal static string? Md5(string? integrity)
     {
