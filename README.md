@@ -153,8 +153,9 @@ dotnet run --project Packager.Tests
 
 ## License
 
-The packager's source code is licensed under the [Mozilla Public License 2.0](LICENSE). The Unity libraries published in
-this repository's releases are not covered by this license; they remain subject to Unity's terms (see below).
+The packager's source code is licensed under the [GNU Lesser General Public License, version 3](COPYING.LESSER), which
+supplements the [GNU General Public License, version 3](COPYING). The Unity libraries published in this repository's
+releases are not covered by this license; they remain subject to Unity's terms (see below).
 
 ## Legal Notice
 
