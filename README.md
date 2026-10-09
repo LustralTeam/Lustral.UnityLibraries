@@ -5,6 +5,8 @@ Unity's managed runtime libraries, published as one release per Unity version, f
 Unity's API that the game uses. Lustral's generator restores the remaining API from these libraries ("unstripping"),
 so that mods can use Unity's complete API on Windows and Linux IL2CPP games.
 
+Questions about Lustral can be asked on the [Lustral Discord server](https://discord.gg/3Y6Ete73E3).
+
 Releases are built automatically by GitHub Actions from Unity's module packages, following the same approach as
 [MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies).
 
