@@ -131,6 +131,22 @@ public sealed class PlannerTests
     }
 
     [Fact]
+    public void Excluded_versions_are_built_only_when_requested()
+    {
+        var config = new PackagesConfig
+        {
+            MinimumVersion = Config.MinimumVersion,
+            Packages = Config.Packages,
+            ExcludedVersions = new Dictionary<string, string> { ["6000.0.11f1"] = "hash mismatch" },
+        };
+        var releases = new[] { Release("6000.0.12f1", "windows-il2cpp"), Release("6000.0.11f1", "windows-il2cpp") };
+        var none = new Dictionary<string, IReadOnlyDictionary<string, MarkerEntry>>();
+
+        Assert.Equal(["6000.0.12f1"], Planner.Plan(config, releases, none).Select(w => w.Version.ToString()));
+        Assert.Equal(["6000.0.11f1"], Planner.Plan(config, releases, none, [UnityVersion.Parse("6000.0.11f1")]).Select(w => w.Version.ToString()));
+    }
+
+    [Fact]
     public void A_package_can_start_at_a_later_version()
     {
         var config = new PackagesConfig
@@ -169,6 +185,8 @@ public sealed class PackagesConfigTests
 
     [Theory]
     [InlineData("""{ "minimumVersion": "2019.4.0f1", "packages": [] }""")]
+    [InlineData("""{ "minimumVersion": "2019.4.0f1", "excludedVersions": { "6000.0.11": "reason" }, "packages": [ { "asset": "A.zip", "module": "m", "sources": ["s"], "files": ["*"] } ] }""")]
+    [InlineData("""{ "minimumVersion": "2019.4.0f1", "excludedVersions": { "6000.0.11f1": "" }, "packages": [ { "asset": "A.zip", "module": "m", "sources": ["s"], "files": ["*"] } ] }""")]
     [InlineData("""{ "minimumVersion": "2019.4", "packages": [ { "asset": "A.zip", "module": "m", "sources": ["s"], "files": ["*"] } ] }""")]
     [InlineData("""{ "minimumVersion": "2019.4.0f1", "packages": [ { "asset": "A.tar", "module": "m", "sources": ["s"], "files": ["*"] } ] }""")]
     [InlineData("""{ "minimumVersion": "2019.4.0f1", "packages": [ { "asset": "A.zip", "module": "m", "sources": ["s"], "files": ["*"] }, { "asset": "a.zip", "module": "m", "sources": ["s"], "files": ["*"] } ] }""")]

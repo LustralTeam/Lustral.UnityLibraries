@@ -73,6 +73,12 @@ async Task<int> Plan()
     var limit = int.TryParse(options.Get("limit"), out var n) && n > 0 ? n : int.MaxValue;
     var work = Planner.Plan(config, releases, existing, only, options.Has("rebuild"), limit);
 
+    if (only.Count == 0)
+    {
+        foreach (var (version, reason) in config.ExcludedVersions)
+            Console.WriteLine($"  {version}: excluded in {PackagesConfig.FileName}. {reason}");
+    }
+
     foreach (var item in work)
         Console.WriteLine($"  {item.Version}: {string.Join(", ", item.Packages)}");
     Console.WriteLine(work.Count == 0 ? "Nothing to build" : $"{work.Count} version(s) to build");

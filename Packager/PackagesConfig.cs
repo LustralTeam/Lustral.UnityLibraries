@@ -15,8 +15,16 @@ internal sealed class PackagesConfig
 
     public required IReadOnlyList<PackageDefinition> Packages { get; init; }
 
+    /// <summary>
+    /// Unity versions that are not built, each with the reason, for example a module whose download does not match the
+    /// hash in Unity's release API. A version requested explicitly (<c>plan --versions</c>) is built regardless.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ExcludedVersions { get; init; } = new Dictionary<string, string>();
+
     [JsonIgnore]
     public UnityVersion Minimum => UnityVersion.Parse(MinimumVersion);
+
+    public bool IsExcluded(UnityVersion version) => ExcludedVersions.Keys.Any(v => UnityVersion.Parse(v) == version);
 
     public PackageDefinition Package(string asset) =>
         Packages.FirstOrDefault(p => p.Asset == asset) ?? throw new ArgumentException($"{FileName} has no package {asset}");
@@ -32,6 +40,12 @@ internal sealed class PackagesConfig
     public void Validate()
     {
         _ = Minimum;
+        foreach (var (version, reason) in ExcludedVersions)
+        {
+            _ = UnityVersion.Parse(version);
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new InvalidDataException($"{FileName}: excluded version {version} requires a reason");
+        }
         if (Packages.Count == 0)
             throw new InvalidDataException($"{FileName} has no packages");
         foreach (var package in Packages)

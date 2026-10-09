@@ -102,6 +102,18 @@ release from `minimumVersion` onward, and each package in the file is a zip asse
   folders.
 - `minimumVersion` (optional): a later starting Unity version for a single package.
 
+Unity versions that cannot be built are listed in `excludedVersions` at the top level of the file, each with the
+reason, for example a module package that does not match the hash in Unity's release API:
+
+```json
+"excludedVersions": {
+  "6000.0.11f1": "A module package downloaded from Unity does not match the MD5 hash in Unity's release API."
+}
+```
+
+Scheduled runs skip these versions. A manual run that names an excluded version builds it, to check whether the
+problem has been resolved; if it has, remove the entry.
+
 **Adding or changing a package updates existing releases.** Each package definition has a hash that is recorded in the
 release. The next run builds the package for every release that does not contain it or contains it from a different
 definition, without affecting other packages. If a package's files are not present in a version's module, the package

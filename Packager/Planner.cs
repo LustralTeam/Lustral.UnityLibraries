@@ -6,7 +6,8 @@ internal sealed record WorkItem(UnityVersion Version, IReadOnlyList<string> Pack
 /// <summary>
 /// Determines what a run builds: every final Unity release from the configured minimum onward, and for each, the packages
 /// that its release does not yet contain or contains from an older definition. Packages whose module Unity does not offer
-/// for a version are skipped. Newer versions are built first, because games are adopting them.
+/// for a version are skipped, as are versions excluded in the configuration unless requested explicitly. Newer versions
+/// are built first, because games are adopting them.
 /// </summary>
 internal static class Planner
 {
@@ -19,7 +20,9 @@ internal static class Planner
         var work = new List<WorkItem>();
         foreach (var release in releases.OrderByDescending(r => r.Version))
         {
-            if (only is { Count: > 0 } ? !only.Contains(release.Version) : !release.Version.IsFinal || release.Version < config.Minimum)
+            if (only is { Count: > 0 }
+                    ? !only.Contains(release.Version)
+                    : !release.Version.IsFinal || release.Version < config.Minimum || config.IsExcluded(release.Version))
                 continue;
             var marker = existing.TryGetValue(release.Version.ToString(), out var found) ? found : new Dictionary<string, MarkerEntry>();
             var packages = config.Packages
