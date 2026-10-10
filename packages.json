@@ -2,7 +2,8 @@
   "$comment": "What each release holds. Every package is a zip asset, built from one Unity module's macOS installer package (Unity's module id; paths are the package's, the first that exists wins). Unity 6000.6 keeps the libraries only in the shared Variations/<backend>/Managed folder, whose code is the player's (checked on 2022.3.62f2). Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
   "minimumVersion": "2018.1.0f1",
   "excludedVersions": {
-    "6000.0.11f1": "A module package downloaded from Unity does not match the MD5 hash in Unity's release API (October 2026). Retry with a manual run for this version."
+    "6000.0.11f1": "A module package downloaded from Unity does not match the MD5 hash in Unity's release API (October 2026). Retry with a manual run for this version.",
+    "2018.3.0f1": "A module package downloaded from Unity does not match the MD5 hash in Unity's release API (October 2026). Retry with a manual run for this version."
   },
   "packages": [
     {
