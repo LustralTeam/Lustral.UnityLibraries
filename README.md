@@ -95,7 +95,7 @@ release from `minimumVersion` onward, and each package in the file is a zip asse
 - `module`: the Unity module containing the files, identified by the ID that Unity's release API uses for the macOS
   editor's modules (`windows-mono`, `linux-il2cpp`, `linux-mono`, `android`, ...).
 - `sources`: folders in the module's package, tried in order. Unity renames these folders between versions
-  (`win64_player_nondevelopment_mono` was named `win64_nondevelopment_mono` in 2019.4), and from Unity 6000.6 stores the
+  (`win64_player_nondevelopment_mono` was named `win64_nondevelopment_mono` up to 2019.4), and from Unity 6000.6 stores the
   libraries only in the shared `Variations/mono/Managed` and `Variations/il2cpp/Managed` folders, which contain the
   player's code.
 - `files`: the files to include from the source folder. `*` and `?` match within a name, and `**` matches across
