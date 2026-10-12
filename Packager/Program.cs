@@ -10,8 +10,9 @@ const string Usage = """
                is missing a package or contains one from an older definition. Without --repository, assumes that no
                releases exist yet.
       build    --version <unity version> [--packages a.zip,b.zip] [--output dir] [--work dir]
-               Downloads each package's Unity module (the macOS editor's .pkg, which can be read on any OS), extracts the
-               files and writes the zip files to --output, together with a manifest.json.
+               Downloads each package's Unity module (the macOS editor's .pkg for the module, or the editor's own for
+               "editor", which can be read on any OS), extracts the files while downloading and writes the zip files to
+               --output, together with a manifest.json.
       publish  --repository owner/name --version <unity version> --input dir [--target commit]
                Creates the version's release from the output of build, or updates the release's packages and manifest.
 
@@ -118,28 +119,30 @@ async Task<int> Build()
         var moduleWork = Path.Combine(work, version.ToString(), module.Id);
         if (Directory.Exists(moduleWork))
             Directory.Delete(moduleWork, recursive: true);
-        var installer = await ModuleDownloader.DownloadAsync(http, module, moduleWork, cancel.Token);
 
-        // Only the files under the packages' source folders are written; the variations found are recorded for the reasons.
+        // Only the files under the packages' source folders are written, while the package downloads; the folders that
+        // show the package's layout are recorded for the reasons.
         var extracted = Path.Combine(moduleWork, "files");
         var prefixes = group.SelectMany(p => p.Sources).Select(s => s.Trim('/') + "/").ToList();
-        var variations = new SortedSet<string>(StringComparer.Ordinal);
-        var count = MacPackage.Extract(installer, extracted, path =>
+        var layout = new SortedSet<string>(StringComparer.Ordinal);
+        var count = await ModuleDownloader.ExtractAsync(http, module, extracted, path =>
         {
-            var parts = path.Split('/');
-            if (parts.Length > 2 && parts[0] == "Variations")
-                variations.Add($"Variations/{parts[1]}");
+            if (PackageBuilder.LayoutFolder(path) is { } folder)
+                layout.Add(folder);
             return prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
-        });
-        // A package without any player variations does not have the expected layout; the build fails so that it is
-        // investigated and retried.
-        if (variations.Count == 0)
-            throw new InvalidDataException($"{Path.GetFileName(installer)} has no Variations folder; Unity may have changed the module's package layout");
-        Console.WriteLine($"  {module.Id}: {count} files extracted; variations: {string.Join(", ", variations.Select(v => v[11..]))}");
+        }, cancel.Token);
+        // A module without player variations, or an editor without class library profiles, does not have the expected
+        // layout; the build fails so that it is investigated and retried.
+        if (layout.Count == 0)
+        {
+            throw new InvalidDataException($"The {module.Id} package has no {(module.Id == UnityReleases.EditorModule ? "MonoBleedingEdge/lib/mono" : "Variations")} " +
+                "folder; Unity may have changed its layout");
+        }
+        Console.WriteLine($"  {module.Id}: {count} files extracted; contains {string.Join(", ", layout)}");
 
         foreach (var package in group)
         {
-            var entry = PackageBuilder.Build(package, module, extracted, output, string.Join(", ", variations));
+            var entry = PackageBuilder.Build(package, module, extracted, output, string.Join(", ", layout));
             manifest.Packages[package.Asset] = entry;
             Console.WriteLine(entry.State == PackageState.Built
                 ? $"  {package.Asset}: {entry.Files!.Count} files from {entry.Source}, {entry.Size / 1024} KB"

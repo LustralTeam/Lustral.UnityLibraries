@@ -6,11 +6,11 @@ using System.Xml.Linq;
 namespace Lustral.UnityLibraries;
 
 /// <summary>
-/// Reads Unity's macOS module installers (<c>.pkg</c>), the source also used by MelonLoader.UnityDependencies, without
-/// requiring 7-Zip or macOS. A <c>.pkg</c> file is a xar archive whose <c>Payload</c> is a gzip-compressed cpio archive
-/// ("odc" format) containing the module's files, at their paths within the editor's
-/// <c>PlaybackEngines/&lt;platform&gt;Support</c> folder. The package is streamed once, and only the requested files are
-/// written.
+/// Reads Unity's macOS installers (<c>.pkg</c>), the source also used by MelonLoader.UnityDependencies, without requiring
+/// 7-Zip or macOS. A <c>.pkg</c> file is a xar archive whose <c>Payload</c> is a gzip-compressed cpio archive ("odc"
+/// format) containing the files, at their paths within the installation folder: a module's within the editor's
+/// <c>PlaybackEngines/&lt;platform&gt;Support</c> folder, the editor's within its own. The package is read once from start
+/// to end, so it can be read while it downloads, and only the requested files are written.
 /// </summary>
 internal static class MacPackage
 {
@@ -19,21 +19,39 @@ internal static class MacPackage
     public static int Extract(string packagePath, string destination, Func<string, bool> wanted)
     {
         using var file = File.OpenRead(packagePath);
-        var payloads = Payloads(file);
+        return Extract(file, destination, wanted);
+    }
+
+    /// <summary>
+    /// Extracts from a package that is read sequentially, such as a download: the header and the table of contents, then
+    /// the heap through the last <c>Payload</c>. The rest of the stream is not read.
+    /// </summary>
+    public static int Extract(Stream package, string destination, Func<string, bool> wanted)
+    {
+        var (heap, payloads) = TableOfContents(package);
         if (payloads.Count == 0)
-            throw new InvalidDataException($"{Path.GetFileName(packagePath)} has no Payload and is not a module installer package");
+            throw new InvalidDataException("The package has no Payload and is not an installer package");
+        var position = heap;
         var written = 0;
-        foreach (var (offset, length) in payloads)
+        foreach (var (offset, length) in payloads.OrderBy(p => p.Offset))
         {
-            file.Position = offset;
-            using var gzip = new GZipStream(new WindowStream(file, length), CompressionMode.Decompress, leaveOpen: true);
-            written += ExtractCpio(gzip, destination, wanted);
+            if (offset < position)
+                throw new InvalidDataException("The package's payloads overlap");
+            Skip(package, offset - position);
+            var window = new WindowStream(package, length);
+            using (var gzip = new GZipStream(window, CompressionMode.Decompress, leaveOpen: true))
+                written += ExtractCpio(gzip, destination, wanted);
+            window.Drain(); // The cpio archive ends before its padding and the gzip trailer.
+            position = offset + length;
         }
         return written;
     }
 
-    /// <summary>Returns the location of each <c>Payload</c> in the xar archive: its absolute offset and length.</summary>
-    internal static List<(long Offset, long Length)> Payloads(Stream xar)
+    /// <summary>
+    /// Reads the xar header and table of contents, leaving the stream at the start of the heap. Returns the heap's offset in
+    /// the archive and each <c>Payload</c>'s offset in the archive and length.
+    /// </summary>
+    internal static (long Heap, List<(long Offset, long Length)> Payloads) TableOfContents(Stream xar)
     {
         Span<byte> header = stackalloc byte[28];
         xar.ReadExactly(header);
@@ -41,12 +59,16 @@ internal static class MacPackage
             throw new InvalidDataException("Not a xar archive (a macOS .pkg)");
         var headerSize = BinaryPrimitives.ReadUInt16BigEndian(header[4..]);
         var tocCompressed = (long)BinaryPrimitives.ReadUInt64BigEndian(header[8..]);
-        xar.Position = headerSize;
+        if (headerSize < header.Length)
+            throw new InvalidDataException("Malformed xar header");
+        Skip(xar, headerSize - header.Length);
         XDocument toc;
-        using (var zlib = new ZLibStream(new WindowStream(xar, tocCompressed), CompressionMode.Decompress, leaveOpen: true))
+        var tocWindow = new WindowStream(xar, tocCompressed);
+        using (var zlib = new ZLibStream(tocWindow, CompressionMode.Decompress, leaveOpen: true))
             toc = XDocument.Load(zlib);
+        tocWindow.Drain(); // The XML ends before the zlib checksum.
         var heap = headerSize + tocCompressed;
-        return toc.Descendants("file")
+        return (heap, toc.Descendants("file")
             .Where(f => (string?)f.Element("name") == "Payload" && f.Element("data") is not null)
             .Select(f =>
             {
@@ -56,8 +78,10 @@ internal static class MacPackage
                     throw new InvalidDataException($"Payload is stored as {encoding}; only uncompressed xar entries are supported");
                 return (heap + (long)data.Element("offset")!, (long)data.Element("length")!);
             })
-            .ToList();
+            .ToList());
     }
+
+    private static void Skip(Stream stream, long count) => Copy(stream, Stream.Null, count);
 
     /// <summary>Old portable cpio format ("odc", <c>070707</c>): a 76-character octal header, followed by the name and the data.</summary>
     internal static int ExtractCpio(Stream cpio, string destination, Func<string, bool> wanted)
@@ -126,6 +150,9 @@ internal static class MacPackage
     private sealed class WindowStream(Stream inner, long length) : Stream
     {
         private long _remaining = length;
+
+        /// <summary>Reads the rest of the range, so that the inner stream is positioned after it.</summary>
+        public void Drain() => Copy(this, Stream.Null, _remaining);
 
         public override bool CanRead => true;
         public override bool CanSeek => false;

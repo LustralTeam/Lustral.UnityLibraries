@@ -92,6 +92,22 @@ internal static class PackageBuilder
         return Directory.Exists(current) ? current : null;
     }
 
+    /// <summary>
+    /// Returns the folder that shows a package's layout for a path in it, if any: a player variation in a module
+    /// (<c>Variations/win64_player_nondevelopment_mono</c>), or a class library profile in the editor
+    /// (<c>Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32</c>).
+    /// </summary>
+    internal static string? LayoutFolder(string path)
+    {
+        var parts = path.Split('/');
+        if (parts.Length > 2 && parts[0] == "Variations")
+            return $"Variations/{parts[1]}";
+        var mono = Array.IndexOf(parts, "MonoBleedingEdge");
+        if (mono >= 0 && parts.Length > mono + 4 && parts[mono + 1] == "lib" && parts[mono + 2] == "mono")
+            return string.Join('/', parts[..(mono + 4)]);
+        return null;
+    }
+
     /// <summary>Matches <c>*</c> and <c>?</c> within a path part and <c>**</c> across parts, case-insensitively.</summary>
     internal static Regex Glob(string pattern)
     {

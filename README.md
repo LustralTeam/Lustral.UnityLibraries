@@ -1,14 +1,14 @@
 # Lustral Unity Libraries
 
-Unity's managed runtime libraries, published as one release per Unity version, for use by
-[Lustral](https://github.com/LustralTeam/Lustral) during interop generation. IL2CPP builds include only the parts of
-Unity's API that the game uses. Lustral's generator restores the remaining API from these libraries ("unstripping"),
-so that mods can use Unity's complete API on Windows and Linux IL2CPP games.
+Unity's managed runtime libraries and the .NET class libraries of IL2CPP builds, published as one release per Unity
+version, for use by [Lustral](https://github.com/LustralTeam/Lustral) during interop generation. IL2CPP builds include
+only the parts of Unity's API and of the class libraries that the game uses. Lustral's generator restores the rest from
+these libraries ("unstripping"), so that mods can use Unity's complete API on Windows and Linux IL2CPP games.
 
 Questions about Lustral can be asked on the [Lustral Discord server](https://discord.gg/3Y6Ete73E3).
 
-Releases are built automatically by GitHub Actions from Unity's module packages, following the same approach as
-[MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies).
+Releases are built automatically by GitHub Actions from Unity's module and editor packages, following the same approach
+as [MelonLoader.UnityDependencies](https://github.com/LavaGang/MelonLoader.UnityDependencies).
 
 ## Release Contents
 
@@ -18,11 +18,13 @@ Each release is tagged with the exact Unity version, for example `6000.0.58f2`, 
 | --- | --- |
 | `Managed-Windows.zip` | Unity's managed libraries (`UnityEngine.*.dll` and related assemblies) from the Windows x64 player. |
 | `Managed-Linux.zip` | Unity's managed libraries from the Linux x64 IL2CPP player. |
+| `ClassLibraries-Windows.zip` | The .NET class libraries of Windows IL2CPP builds (`mscorlib.dll`, `System.dll`, ..., and the facades in `Facades`, `netstandard.dll` among them). |
+| `ClassLibraries-Linux.zip` | The .NET class libraries of Linux IL2CPP builds. |
 | `manifest.json` | The contents and origin of each package, with SHA-256 hashes. |
 
-The libraries are stored at the root of each zip file. If Unity does not provide a package's module for a version (the
-Linux IL2CPP module is unavailable for some older versions), the package is omitted from that release and
-`manifest.json` states the reason.
+The libraries are stored at the root of each zip file, and the facades of the class libraries in its `Facades` folder.
+If Unity does not provide a package's module for a version (the Linux IL2CPP module is unavailable for some older
+versions), the package is omitted from that release and `manifest.json` states the reason.
 
 ### Source of the Windows Libraries
 
@@ -32,6 +34,14 @@ those of the Windows editor's IL2CPP player: the managed code is equivalent, dif
 inlining hints and one equivalent field initializer. In addition, 67 of the 68 files are byte-identical to those of the
 Windows editor's Mono player; the remaining file, `UnityEngine.dll`, contains the same type forwards and module ID in a
 different order. This is a closer match than the Android libraries used by MelonLoader.
+
+### Source of the Class Libraries
+
+IL2CPP builds use Mono's class libraries in Unity's AOT profile, which only the editor contains: in
+`MonoBleedingEdge/lib/mono/unityaot-win32` and `unityaot-linux`, with every platform's profile in each editor, or
+`unityaot` in older versions. The class libraries are therefore taken from the macOS editor's own package. Unity's
+libraries reference the class libraries through the `netstandard` facade, so Il2CppInterop needs both to resolve them,
+as its command-line tool describes.
 
 ### Download Addresses
 
@@ -93,7 +103,8 @@ release from `minimumVersion` onward, and each package in the file is a zip asse
 ```
 
 - `module`: the Unity module containing the files, identified by the ID that Unity's release API uses for the macOS
-  editor's modules (`windows-mono`, `linux-il2cpp`, `linux-mono`, `android`, ...).
+  editor's modules (`windows-mono`, `linux-il2cpp`, `linux-mono`, `android`, ...), or `editor` for the editor's own
+  package.
 - `sources`: folders in the module's package, tried in order. Unity renames these folders between versions
   (`win64_player_nondevelopment_mono` was named `win64_nondevelopment_mono` up to 2019.4), and from Unity 6000.6 stores the
   libraries only in the shared `Variations/mono/Managed` and `Variations/il2cpp/Managed` folders, which contain the
@@ -128,12 +139,13 @@ packager changes, and on manual dispatch. All jobs run on Ubuntu runners:
 1. **Plan:** queries Unity's release API (the API used by Unity Hub) for all releases, compares them with this
    repository's releases, and selects up to 40 versions to build, newest first.
 2. **Build and publish:** one runner per version downloads each required module's macOS package (`.pkg`) from Unity's
-   servers, verifies it against the MD5 hash published by Unity, extracts the files, creates a zip file for each
-   package, and creates the release or updates the changed packages of an existing release.
+   servers, extracting the files while it downloads, verifies the package against the MD5 hash published by Unity,
+   creates a zip file for each package, and creates the release or updates the changed packages of an existing release.
 
 A `.pkg` file is a xar archive whose `Payload` is a gzip-compressed cpio archive. The packager reads this format directly
-([`MacPackage.cs`](Packager/MacPackage.cs)), streaming each package once and writing only the folders that the packages
-use. No software distributed by Unity is executed.
+([`MacPackage.cs`](Packager/MacPackage.cs)), from start to end as the package downloads, and writes only the folders that
+the packages use, so the editor's package (several gigabytes) needs no disk space. No software distributed by Unity is
+executed.
 
 To build or rebuild specific versions, run the workflow manually with those versions, and select "rebuild" to replace
 existing assets.

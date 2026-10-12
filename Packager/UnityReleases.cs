@@ -3,7 +3,10 @@ using System.Text.Json;
 
 namespace Lustral.UnityLibraries;
 
-/// <summary>A Unity release and the modules offered for its macOS editor, whose packages contain the player files.</summary>
+/// <summary>
+/// A Unity release and the modules offered for its macOS editor, whose packages contain the player files, together with the
+/// editor's own package as the module <see cref="UnityReleases.EditorModule"/>.
+/// </summary>
 internal sealed record UnityRelease(UnityVersion Version, string Revision, IReadOnlyDictionary<string, UnityModule> Modules);
 
 /// <param name="Md5">The installer's MD5 hash, as lowercase hexadecimal, if Unity provides it.</param>
@@ -17,6 +20,12 @@ internal sealed record UnityModule(string Id, Uri Url, string Type, long Size, s
 /// </summary>
 internal static class UnityReleases
 {
+    /// <summary>
+    /// The module ID given to the editor's own package, which contains the class libraries (Mono's profiles in
+    /// <c>MonoBleedingEdge</c>) that no module contains.
+    /// </summary>
+    public const string EditorModule = "editor";
+
     private const string Endpoint = "https://services.api.unity.com/unity/editor/release/v1/releases";
     private const int PageSize = 25; // The API's maximum.
 
@@ -49,17 +58,26 @@ internal static class UnityReleases
         {
             if (download.GetProperty("platform").GetString() != "MAC_OS" || download.GetProperty("architecture").GetString() != "X86_64")
                 continue;
+            if (Module(EditorModule, download) is { } editor)
+                modules[EditorModule] = editor;
             foreach (var module in download.GetProperty("modules").EnumerateArray())
             {
-                var id = module.GetProperty("id").GetString();
-                if (id is null || !Uri.TryCreate(module.GetProperty("url").GetString(), UriKind.Absolute, out var url))
-                    continue;
-                var size = module.TryGetProperty("downloadSize", out var downloadSize) ? downloadSize.GetProperty("value").GetInt64() : 0;
-                var integrity = module.TryGetProperty("integrity", out var value) ? value.GetString() : null;
-                modules[id] = new UnityModule(id, url, module.GetProperty("type").GetString() ?? "", size, Md5(integrity));
+                if (module.GetProperty("id").GetString() is { } id && Module(id, module) is { } parsed)
+                    modules[id] = parsed;
             }
         }
         return new UnityRelease(version, release.GetProperty("shortRevision").GetString() ?? "", modules);
+    }
+
+    // A download or a module: both have a URL, a type, a size and an MD5 hash.
+    private static UnityModule? Module(string id, JsonElement element)
+    {
+        if (!element.TryGetProperty("url", out var address) || !Uri.TryCreate(address.GetString(), UriKind.Absolute, out var url))
+            return null;
+        var type = element.TryGetProperty("type", out var typeValue) ? typeValue.GetString() ?? "" : "";
+        var size = element.TryGetProperty("downloadSize", out var downloadSize) ? downloadSize.GetProperty("value").GetInt64() : 0;
+        var integrity = element.TryGetProperty("integrity", out var value) ? value.GetString() : null;
+        return new UnityModule(id, url, type, size, Md5(integrity));
     }
 
     /// <summary>

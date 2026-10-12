@@ -43,12 +43,16 @@ public sealed class UnityReleasesTests
     public void Has_no_md5_without_one(string? integrity) => Assert.Null(UnityReleases.Md5(integrity));
 
     [Fact]
-    public void Takes_the_macos_x64_editors_modules()
+    public void Takes_the_macos_x64_editors_modules_and_the_editor_itself()
     {
         using var document = JsonDocument.Parse("""
             { "version": "2022.3.62f2", "shortRevision": "7670c08855a9", "downloads": [
-              { "platform": "WINDOWS", "architecture": "X86_64", "modules": [ { "id": "windows-il2cpp", "url": "https://example.com/setup.exe", "type": "EXE" } ] },
-              { "platform": "MAC_OS", "architecture": "X86_64", "modules": [
+              { "platform": "WINDOWS", "architecture": "X86_64", "url": "https://example.com/UnitySetup64.exe", "type": "EXE",
+                "modules": [ { "id": "windows-il2cpp", "url": "https://example.com/setup.exe", "type": "EXE" } ] },
+              { "platform": "MAC_OS", "architecture": "X86_64",
+                "url": "https://download.unity3d.com/x/MacEditorInstaller/Unity-2022.3.62f2.pkg", "type": "PKG",
+                "downloadSize": { "value": 4514745561, "unit": "BYTE" }, "integrity": "md5-NWIwZTllYzk4MjY3OTNmYTQ4ZDE2NWY5ODFkODMwNTg=",
+                "modules": [
                 { "id": "windows-mono", "url": "https://download.unity3d.com/x/MacEditorTargetInstaller/UnitySetup-Windows-Mono-Support-for-Editor-2022.3.62f2.pkg",
                   "type": "PKG", "downloadSize": { "value": 182450165, "unit": "BYTE" }, "integrity": "md5-ZGVjNDhmZTUyMWVlZDNlZDQ1MDE3OTIyZjEyNWZlYjY=" } ] } ] }
             """);
@@ -56,8 +60,12 @@ public sealed class UnityReleasesTests
         var release = UnityReleases.Parse(document.RootElement)!;
 
         Assert.Equal(("2022.3.62f2", "7670c08855a9"), (release.Version.ToString(), release.Revision));
-        var module = Assert.Single(release.Modules).Value;
+        Assert.Equal(["editor", "windows-mono"], release.Modules.Keys.Order(StringComparer.Ordinal));
+        var module = release.Modules["windows-mono"];
         Assert.Equal(("windows-mono", "PKG", 182450165L, "dec48fe521eed3ed45017922f125feb6"), (module.Id, module.Type, module.Size, module.Md5));
+        var editor = release.Modules[UnityReleases.EditorModule];
+        Assert.Equal(("PKG", 4514745561L, "5b0e9ec9826793fa48d165f981d83058", "Unity-2022.3.62f2.pkg"),
+            (editor.Type, editor.Size, editor.Md5, Path.GetFileName(editor.Url.AbsolutePath)));
     }
 }
 
@@ -181,6 +189,8 @@ public sealed class PackagesConfigTests
         var config = PackagesConfig.Load(path);
         Assert.Contains(config.Packages, p => p.Asset == "Managed-Windows.zip");
         Assert.Contains(config.Packages, p => p.Asset == "Managed-Linux.zip");
+        Assert.Contains(config.Packages, p => p.Asset == "ClassLibraries-Windows.zip" && p.Module == UnityReleases.EditorModule);
+        Assert.Contains(config.Packages, p => p.Asset == "ClassLibraries-Linux.zip" && p.Module == UnityReleases.EditorModule);
     }
 
     [Theory]
