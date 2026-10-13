@@ -108,7 +108,9 @@ release from `minimumVersion` onward, and each package in the file is a zip asse
 - `sources`: folders in the module's package, tried in order. Unity renames these folders between versions
   (`win64_player_nondevelopment_mono` was named `win64_nondevelopment_mono` up to 2019.4), and from Unity 6000.6 stores the
   libraries only in the shared `Variations/mono/Managed` and `Variations/il2cpp/Managed` folders, which contain the
-  player's code.
+  player's code. A folder that starts with `**/` is found at any depth: the class libraries are taken from
+  `**/MonoBleedingEdge/lib/mono/unityaot-win32`, which is `Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/...`
+  in Unity 6's editor package.
 - `files`: the files to include from the source folder. `*` and `?` match within a name, and `**` matches across
   folders.
 - `minimumVersion` (optional): a later starting Unity version for a single package.

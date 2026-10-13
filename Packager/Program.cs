@@ -123,13 +123,13 @@ async Task<int> Build()
         // Only the files under the packages' source folders are written, while the package downloads; the folders that
         // show the package's layout are recorded for the reasons.
         var extracted = Path.Combine(moduleWork, "files");
-        var prefixes = group.SelectMany(p => p.Sources).Select(s => s.Trim('/') + "/").ToList();
+        var sources = group.SelectMany(p => p.Sources).ToList();
         var layout = new SortedSet<string>(StringComparer.Ordinal);
         var count = await ModuleDownloader.ExtractAsync(http, module, extracted, path =>
         {
             if (PackageBuilder.LayoutFolder(path) is { } folder)
                 layout.Add(folder);
-            return prefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+            return sources.Any(source => PackageBuilder.IsInSource(path, source));
         }, cancel.Token);
         // A module without player variations, or an editor without class library profiles, does not have the expected
         // layout; the build fails so that it is investigated and retried.
@@ -148,7 +148,9 @@ async Task<int> Build()
                 ? $"  {package.Asset}: {entry.Files!.Count} files from {entry.Source}, {entry.Size / 1024} KB"
                 : $"  {package.Asset}: not available ({entry.Reason})");
         }
-        Directory.Delete(moduleWork, recursive: true); // Runners have limited disk space.
+        // Runners have limited disk space. Nothing is written if the package has none of the source folders.
+        if (Directory.Exists(moduleWork))
+            Directory.Delete(moduleWork, recursive: true);
     }
     manifest.Write(Path.Combine(output, Manifest.FileName));
     Console.WriteLine($"Wrote {output}");

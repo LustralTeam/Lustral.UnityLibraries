@@ -1,5 +1,5 @@
 {
-  "$comment": "What each release holds. Every package is a zip asset, built from one Unity module's macOS installer package (Unity's module id, or editor for the editor's own package; paths are the package's, the first that exists wins). Unity 6000.6 keeps the libraries only in the shared Variations/<backend>/Managed folder, whose code is the player's (checked on 2022.3.62f2). The class libraries are only in the editor, which has every platform's profile. Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
+  "$comment": "What each release holds. Every package is a zip asset, built from one Unity module's macOS installer package (Unity's module id, or editor for the editor's own package; paths are the package's, the first that exists wins, and a path that starts with **/ is found at any depth). Unity 6000.6 keeps the libraries only in the shared Variations/<backend>/Managed folder, whose code is the player's (checked on 2022.3.62f2). The class libraries are only in the editor, which has every platform's profile. Adding a package, or changing one, makes the next run (re)build that asset in every release it applies to; the others stay as they are.",
   "minimumVersion": "2018.1.0f1",
   "excludedVersions": {
     "6000.0.11f1": "A module package downloaded from Unity does not match the MD5 hash in Unity's release API (October 2026). Retry with a manual run for this version.",
@@ -33,8 +33,8 @@
       "description": "The .NET class libraries of Windows IL2CPP builds, from the editor: Mono's unityaot-win32 profile (unityaot in older versions) with its facades, netstandard among them. Il2CppInterop resolves Unity's libraries through them and restores the class library members that the build excluded.",
       "module": "editor",
       "sources": [
-        "Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32",
-        "Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot"
+        "**/MonoBleedingEdge/lib/mono/unityaot-win32",
+        "**/MonoBleedingEdge/lib/mono/unityaot"
       ],
       "files": [ "*.dll", "Facades/*.dll" ]
     },
@@ -43,8 +43,8 @@
       "description": "The .NET class libraries of Linux IL2CPP builds, from the editor: Mono's unityaot-linux profile (unityaot in older versions) with its facades.",
       "module": "editor",
       "sources": [
-        "Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-linux",
-        "Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot"
+        "**/MonoBleedingEdge/lib/mono/unityaot-linux",
+        "**/MonoBleedingEdge/lib/mono/unityaot"
       ],
       "files": [ "*.dll", "Facades/*.dll" ]
     }

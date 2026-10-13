@@ -77,7 +77,8 @@ internal sealed class PackageDefinition
 
     /// <summary>
     /// Folders in the extracted module, relative to its installation folder (Unity's editor folder), tried in order. The
-    /// first existing folder is used, because Unity renames them between versions.
+    /// first existing folder is used, because Unity renames them between versions. A folder that starts with <c>**/</c> is
+    /// found at any depth, for layouts that differ between versions, such as the editor's.
     /// </summary>
     public required IReadOnlyList<string> Sources { get; init; }
 

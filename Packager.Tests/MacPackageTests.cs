@@ -123,6 +123,7 @@ public sealed class MacPackageTests : IDisposable
     [Theory]
     [InlineData("Variations/win64_player_nondevelopment_mono/Data/Managed/UnityEngine.dll", "Variations/win64_player_nondevelopment_mono")]
     [InlineData("Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32/Facades/netstandard.dll", "Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32")]
+    [InlineData("Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityaot-linux/System.dll", "Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityaot-linux")]
     [InlineData("Unity.app/Contents/MonoBleedingEdge/lib/mono", null)]
     [InlineData("Unity.app/Contents/Managed/UnityEngine.dll", null)]
     public void Describes_a_packages_layout_by_its_variations_and_class_library_profiles(string path, string? folder) =>

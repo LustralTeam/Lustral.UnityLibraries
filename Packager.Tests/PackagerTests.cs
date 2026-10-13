@@ -312,6 +312,40 @@ public sealed class PackageBuilderTests : IDisposable
     }
 
     [Fact]
+    public void A_source_folder_that_starts_with_double_star_is_found_at_any_depth()
+    {
+        var profiles = Path.Combine(_root, "editor", "Unity", "Unity.app", "Contents", "Resources", "Scripting", "MonoBleedingEdge", "lib", "mono");
+        Directory.CreateDirectory(Path.Combine(profiles, "unityaot-win32", "Facades"));
+        Directory.CreateDirectory(Path.Combine(profiles, "unityjit-win32"));
+        File.WriteAllText(Path.Combine(profiles, "unityaot-win32", "mscorlib.dll"), "aot");
+        File.WriteAllText(Path.Combine(profiles, "unityaot-win32", "Facades", "netstandard.dll"), "facade");
+        File.WriteAllText(Path.Combine(profiles, "unityjit-win32", "mscorlib.dll"), "jit");
+        var package = new PackageDefinition
+        {
+            Asset = "ClassLibraries-Windows.zip",
+            Module = "editor",
+            Sources = ["**/MonoBleedingEdge/lib/mono/unityaot-win32", "**/MonoBleedingEdge/lib/mono/unityaot"],
+            Files = ["*.dll", "Facades/*.dll"],
+        };
+
+        var entry = PackageBuilder.Build(package, null, Path.Combine(_root, "editor"), Path.Combine(_root, "out"));
+
+        Assert.Equal(PackageState.Built, entry.State);
+        Assert.Equal("Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityaot-win32", entry.Source);
+        Assert.Equal(["Facades/netstandard.dll", "mscorlib.dll"], entry.Files!.Select(f => f.Name));
+    }
+
+    [Theory]
+    [InlineData("Variations/win64/Data/Managed/UnityEngine.dll", "Variations/win64/Data/Managed", true)]
+    [InlineData("Variations/win64/Data/Managed2/UnityEngine.dll", "Variations/win64/Data/Managed", false)]
+    [InlineData("Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityaot-win32/Facades/netstandard.dll", "**/MonoBleedingEdge/lib/mono/unityaot-win32", true)]
+    [InlineData("MonoBleedingEdge/lib/mono/unityaot/mscorlib.dll", "**/MonoBleedingEdge/lib/mono/unityaot", true)]
+    [InlineData("Unity/Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32/mscorlib.dll", "**/MonoBleedingEdge/lib/mono/unityaot", false)]
+    [InlineData("Unity/Unity.app/Contents/OtherMonoBleedingEdge/lib/mono/unityaot/mscorlib.dll", "**/MonoBleedingEdge/lib/mono/unityaot", false)]
+    public void Files_are_taken_from_their_source_folders(string path, string source, bool inSource) =>
+        Assert.Equal(inSource, PackageBuilder.IsInSource(path, source));
+
+    [Fact]
     public void Double_star_reaches_into_folders() =>
         Assert.Equal(["Sub/Nested.dll", "UnityEngine.AIModule.dll", "UnityEngine.CoreModule.dll"],
             PackageBuilder.Build(Package("**/*.dll"), null, Path.Combine(_root, "install"), Path.Combine(_root, "out")).Files!.Select(f => f.Name));

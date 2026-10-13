@@ -21,6 +21,7 @@ internal static class PackageBuilder
                 $"none of the source folders is in the {package.Module} module ({string.Join(", ", package.Sources)}); it has {contents ?? Describe(installed)}");
         }
         var directory = ResolveDirectory(installed, source)!;
+        var folder = Path.GetRelativePath(installed, directory).Replace('\\', '/');
         var patterns = package.Files.Select(Glob).ToList();
         var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
             .Select(path => (Path: path, Name: Path.GetRelativePath(directory, path).Replace('\\', '/')))
@@ -28,7 +29,7 @@ internal static class PackageBuilder
             .OrderBy(file => file.Name, StringComparer.Ordinal)
             .ToList();
         if (files.Count == 0)
-            return Unavailable(package, module, $"{source} has no files matching {string.Join(", ", package.Files)}");
+            return Unavailable(package, module, $"{folder} has no files matching {string.Join(", ", package.Files)}");
 
         Directory.CreateDirectory(outputDirectory);
         var zipPath = Path.Combine(outputDirectory, package.Asset);
@@ -53,7 +54,7 @@ internal static class PackageBuilder
             Module = package.Module,
             ModuleUrl = module?.Url.ToString(),
             ModuleMd5 = module?.Md5,
-            Source = source,
+            Source = folder,
             Size = zipBytes.Length,
             Sha256 = Convert.ToHexStringLower(SHA256.HashData(zipBytes)),
             Files = entries,
@@ -75,10 +76,24 @@ internal static class PackageBuilder
     /// <summary>
     /// Returns the folder at <paramref name="relative"/>, matching each part case-insensitively. The case of Unity's folder
     /// names varies between versions (<c>WindowsStandaloneSupport</c>, <c>windowsstandalonesupport</c>), and Linux file
-    /// systems are case-sensitive.
+    /// systems are case-sensitive. A path that starts with <c>**/</c> is found at any depth; if there are several, the one
+    /// closest to the root is used.
     /// </summary>
     internal static string? ResolveDirectory(string root, string relative)
     {
+        if (AnyDepth(relative) is { } suffix)
+        {
+            if (!Directory.Exists(root))
+                return null;
+            return Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories)
+                .Select(directory => (Path: directory, Relative: Path.GetRelativePath(root, directory).Replace('\\', '/')))
+                .Where(d => d.Relative.Equals(suffix, StringComparison.OrdinalIgnoreCase) || d.Relative.EndsWith("/" + suffix, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(d => d.Relative.Count(c => c == '/'))
+                .ThenBy(d => d.Relative, StringComparer.Ordinal)
+                .Select(d => d.Path)
+                .FirstOrDefault();
+        }
+
         var current = root;
         foreach (var part in relative.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries))
         {
@@ -93,9 +108,29 @@ internal static class PackageBuilder
     }
 
     /// <summary>
+    /// Whether a file in a package, given by its path, is in a source folder (see <see cref="PackageDefinition.Sources"/>).
+    /// </summary>
+    internal static bool IsInSource(string path, string source)
+    {
+        if (AnyDepth(source) is { } suffix)
+        {
+            return path.StartsWith(suffix + "/", StringComparison.OrdinalIgnoreCase)
+                   || path.Contains("/" + suffix + "/", StringComparison.OrdinalIgnoreCase);
+        }
+        return path.StartsWith(source.Trim('/') + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // The rest of a source folder that starts with **/, which matches it at any depth.
+    private static string? AnyDepth(string source)
+    {
+        var folder = source.Replace('\\', '/').Trim('/');
+        return folder.StartsWith("**/", StringComparison.Ordinal) ? folder[3..] : null;
+    }
+
+    /// <summary>
     /// Returns the folder that shows a package's layout for a path in it, if any: a player variation in a module
     /// (<c>Variations/win64_player_nondevelopment_mono</c>), or a class library profile in the editor
-    /// (<c>Unity.app/Contents/MonoBleedingEdge/lib/mono/unityaot-win32</c>).
+    /// (<c>Unity/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityaot-win32</c> in Unity 6).
     /// </summary>
     internal static string? LayoutFolder(string path)
     {
