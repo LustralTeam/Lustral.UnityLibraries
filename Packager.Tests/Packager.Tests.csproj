@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Packager\Packager.csproj" />
-    <PackageReference Include="xunit.v3" Version="4.0.1" />
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 
   <ItemGroup>
